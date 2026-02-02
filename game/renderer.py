@@ -40,7 +40,8 @@ class Renderer:
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
     
-    def draw_board(self, game_state: GameState, legal_moves: Optional[list] = None, last_move: Optional[tuple] = None):
+    def draw_board(self, game_state: GameState, legal_moves: Optional[list] = None, 
+                   last_move: Optional[tuple] = None, animating_position: Optional[Position] = None):
         """
         Draw the complete chess board with pieces.
         
@@ -48,6 +49,7 @@ class Renderer:
             game_state: Current game state
             legal_moves: List of legal move positions to highlight (optional)
             last_move: Tuple of (from_pos, to_pos) for last move highlighting
+            animating_position: Position to exclude from drawing (for animation)
         """
         self._draw_squares(game_state)
         
@@ -67,8 +69,8 @@ class Renderer:
         if game_state.game_status == GameStatus.CHECK:
             self._draw_check_highlight(game_state)
         
-        # Draw pieces
-        self._draw_pieces(game_state.board)
+        # Draw pieces (excluding animated piece)
+        self._draw_pieces(game_state.board, exclude_position=animating_position)
         
         # Draw coordinates
         self._draw_coordinates()
@@ -86,11 +88,22 @@ class Renderer:
                 )
                 pygame.draw.rect(self.screen, color, rect)
     
-    def _draw_pieces(self, board: Board):
-        """Draw all pieces on the board."""
+    def _draw_pieces(self, board: Board, exclude_position: Optional[Position] = None):
+        """
+        Draw all pieces on the board.
+        
+        Args:
+            board: The board to draw pieces from
+            exclude_position: Optional position to skip (for animated piece)
+        """
         for row in range(8):
             for col in range(8):
                 position = Position(row, col)
+                
+                # Skip the animated piece position
+                if exclude_position and position == exclude_position:
+                    continue
+                
                 piece = board.get_piece(position)
                 
                 if piece:

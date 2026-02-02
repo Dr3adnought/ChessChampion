@@ -2,12 +2,14 @@
 ChessChampion - A chess game with AI opponent.
 Now using refactored architecture with proper separation of concerns.
 """
+import os
 import pygame
 
 from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
-from game.types import GameStatus
+from game.types import GameStatus, Position
+from game.animation import AnimationManager
 from constants import *
 
 
@@ -68,6 +70,16 @@ while game_active:
     AI_PLAYER_COLOR = ai_color
     ai_player = AIPlayer(game, AI_PLAYER_COLOR, depth=ai_depth)
 
+    # Initialize animation manager
+    animation_manager = AnimationManager()
+    
+    # Track pending move (after player clicks, before animation completes)
+    player_move_pending = False
+    ai_move_pending = False
+    
+    # If AI plays white, it should move first
+    ai_should_move_first = (AI_PLAYER_COLOR == 'white')
+
     # Game loop
     running = True
     clock = pygame.time.Clock()
@@ -94,19 +106,88 @@ while game_active:
                     elif choice == 'end_game':
                         running = False
                         game_active = False
-                elif not game.game_over:
+                elif not game.game_over and not animation_manager.is_busy():
+                    # Only allow clicks when not animating
                     mouse_x, mouse_y = event.pos
                     clicked_col = mouse_x // SQUARE_SIZE
                     clicked_row = mouse_y // SQUARE_SIZE
+                    
+                    # Store the previous board state for comparison
+                    old_turn = game.turn
+                    
                     game.handle_click(clicked_row, clicked_col, ai_player_color=AI_PLAYER_COLOR)
+                    
+                    # Check if a move was made (turn changed)
+                    if old_turn != game.turn:
+                        # Player made a move, trigger animation
+                        if game.last_move:
+                            from_pos, to_pos = game.last_move
+                            piece = game.board.get_piece(to_pos)
+                            if piece:
+                                piece_key = piece.to_string_notation()
+                                piece_image = PIECES.get(piece_key)
+                                if piece_image:
+                                    animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+                        
+                        # Mark that AI should move after animation completes
+                        ai_move_pending = True
 
-        # AI makes a move if it's their turn
-        if not game.game_over and game.turn == AI_PLAYER_COLOR:
-            pygame.time.wait(500)  # Brief pause so moves are visible
+        # Handle AI move after player animation completes and delay
+        if ai_move_pending and not animation_manager.is_busy():
+            # Player animation is done, add a delay before AI thinks
+            animation_manager.start_delay(800)  # 800ms delay to show player's move
+            ai_move_pending = False
+            player_move_pending = True
+        
+        # Handle AI first move (when AI plays white)
+        if ai_should_move_first and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
+            # Store old board state before AI move
+            old_turn = game.turn
+            
             ai_player.make_move()
+            
+            # Trigger AI move animation
+            if game.last_move and old_turn != game.turn:
+                from_pos, to_pos = game.last_move
+                piece = game.board.get_piece(to_pos)
+                if piece:
+                    piece_key = piece.to_string_notation()
+                    piece_image = PIECES.get(piece_key)
+                    if piece_image:
+                        animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+            
+            ai_should_move_first = False  # Only do this once
+        
+        # AI makes a move after delay (subsequent moves)
+        if player_move_pending and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
+            # Store old board state before AI move
+            old_turn = game.turn
+            
+            ai_player.make_move()
+            
+            # Trigger AI move animation
+            if game.last_move and old_turn != game.turn:
+                from_pos, to_pos = game.last_move
+                piece = game.board.get_piece(to_pos)
+                if piece:
+                    piece_key = piece.to_string_notation()
+                    piece_image = PIECES.get(piece_key)
+                    if piece_image:
+                        animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+            
+            player_move_pending = False
 
         # Draw everything
-        game.draw(SCREEN, SQUARE_SIZE, LIGHT_COLOR_SQUARE, DARK_COLOR_SQUARE, HIGHLIGHT_COLOR, PIECES)
+        # If animating, exclude the "from" position so we don't draw duplicate piece
+        animating_from_pos = None
+        if animation_manager.is_animating():
+            animating_from_pos = animation_manager.current_animation.to_pos  # Exclude destination (piece is there after move)
+        
+        game.draw(SCREEN, SQUARE_SIZE, LIGHT_COLOR_SQUARE, DARK_COLOR_SQUARE, HIGHLIGHT_COLOR, PIECES, animating_from_pos)
+        
+        # Draw the animated piece on top
+        if animation_manager.is_animating():
+            animation_manager.draw_animation(SCREEN)
         
         # Show game over menu if game ended
         if game.game_over:

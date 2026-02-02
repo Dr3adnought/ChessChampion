@@ -124,7 +124,7 @@ class ChessGame:
                 print(f"It's {self.turn}'s turn. Cannot select opponent's piece or empty square.")
     
     def draw(self, screen: pygame.Surface, square_size: int, light_color: tuple, dark_color: tuple,
-             highlight_color: tuple, pieces_images: dict):
+             highlight_color: tuple, pieces_images: dict, animating_position: Optional[Position] = None):
         """
         Draw the game board. Backwards compatible with old interface.
         
@@ -135,6 +135,7 @@ class ChessGame:
             dark_color: Dark square color
             highlight_color: Highlight color for selected square
             pieces_images: Dictionary of piece images
+            animating_position: Position to exclude from rendering (for animations)
         """
         # Create renderer if not exists
         if self.renderer is None:
@@ -148,7 +149,7 @@ class ChessGame:
             legal_move_positions = [move.to_pos for move in legal_moves]
         
         # Draw the board
-        self.renderer.draw_board(self.game_state, legal_move_positions, self.last_move)
+        self.renderer.draw_board(self.game_state, legal_move_positions, self.last_move, animating_position)
         
         # Draw game over message if applicable
         if self.game_state.is_game_over():
