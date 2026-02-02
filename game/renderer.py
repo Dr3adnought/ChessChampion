@@ -2,9 +2,9 @@
 Rendering logic separated from game logic.
 """
 import pygame
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
-from game.types import Color, Position, GameStatus
+from game.types import Color, Position, GameStatus, PieceType
 from game.board import Board
 from game.game_state import GameState
 
@@ -219,3 +219,128 @@ class Renderer:
         self.light_square_color = light_square
         self.dark_square_color = dark_square
         self.highlight_color = highlight
+    
+    def draw_captured_pieces_sidebar(self, game_state: GameState, sidebar_x: int, sidebar_width: int):
+        """
+        Draw the captured pieces sidebar.
+        
+        Args:
+            game_state: Current game state with captured pieces
+            sidebar_x: X position where sidebar starts
+            sidebar_width: Width of the sidebar
+        """
+        # Background for sidebar
+        sidebar_bg_color = (50, 50, 50)
+        sidebar_rect = pygame.Rect(sidebar_x, 0, sidebar_width, self.screen.get_height())
+        pygame.draw.rect(self.screen, sidebar_bg_color, sidebar_rect)
+        
+        # Draw title
+        title_font = pygame.font.Font(None, 28)
+        title = title_font.render("Captured Pieces", True, (255, 255, 255))
+        title_rect = title.get_rect(centerx=sidebar_x + sidebar_width // 2, y=20)
+        self.screen.blit(title, title_rect)
+        
+        # Piece values for material count
+        piece_values = {
+            PieceType.PAWN: 1,
+            PieceType.KNIGHT: 3,
+            PieceType.BISHOP: 3,
+            PieceType.ROOK: 5,
+            PieceType.QUEEN: 9,
+        }
+        
+        # Draw pieces captured by white (black pieces)
+        y_offset = 70
+        label = self.small_font.render("By White:", True, (200, 200, 200))
+        self.screen.blit(label, (sidebar_x + 10, y_offset))
+        y_offset += 30
+        
+        captured_by_white_sorted = sorted(game_state.captured_by_white, 
+                                         key=lambda p: piece_values.get(p, 0), reverse=True)
+        y_offset = self._draw_captured_pieces_list(captured_by_white_sorted, Color.BLACK, 
+                                                   sidebar_x, y_offset, sidebar_width)
+        
+        # Calculate material advantage
+        white_material = sum(piece_values.get(p, 0) for p in game_state.captured_by_white)
+        black_material = sum(piece_values.get(p, 0) for p in game_state.captured_by_black)
+        advantage = white_material - black_material
+        
+        if advantage > 0:
+            adv_text = f"+{advantage}"
+            adv_color = (100, 255, 100)
+        elif advantage < 0:
+            adv_text = f"{advantage}"
+            adv_color = (255, 100, 100)
+        else:
+            adv_text = "="
+            adv_color = (200, 200, 200)
+        
+        adv_surface = self.small_font.render(adv_text, True, adv_color)
+        self.screen.blit(adv_surface, (sidebar_x + sidebar_width - 40, y_offset - 25))
+        
+        # Draw pieces captured by black (white pieces)
+        y_offset += 30
+        label = self.small_font.render("By Black:", True, (200, 200, 200))
+        self.screen.blit(label, (sidebar_x + 10, y_offset))
+        y_offset += 30
+        
+        captured_by_black_sorted = sorted(game_state.captured_by_black,
+                                         key=lambda p: piece_values.get(p, 0), reverse=True)
+        self._draw_captured_pieces_list(captured_by_black_sorted, Color.WHITE,
+                                       sidebar_x, y_offset, sidebar_width)
+    
+    def _draw_captured_pieces_list(self, captured_pieces: List[PieceType], piece_color: Color,
+                                   sidebar_x: int, y_start: int, sidebar_width: int) -> int:
+        """
+        Draw a list of captured pieces.
+        
+        Args:
+            captured_pieces: List of captured piece types
+            piece_color: Color of the pieces (opposite of capturer)
+            sidebar_x: X position of sidebar
+            y_start: Starting Y position
+            sidebar_width: Width of the sidebar
+            
+        Returns:
+            Final Y position after drawing
+        """
+        if not captured_pieces:
+            no_pieces_text = self.small_font.render("None", True, (120, 120, 120))
+            self.screen.blit(no_pieces_text, (sidebar_x + 20, y_start))
+            return y_start + 30
+        
+        # Piece size for sidebar (smaller than board pieces)
+        piece_size = 40
+        pieces_per_row = (sidebar_width - 20) // piece_size
+        
+        x = sidebar_x + 10
+        y = y_start
+        count = 0
+        
+        for piece_type in captured_pieces:
+            # Get piece image
+            color_prefix = 'w' if piece_color == Color.WHITE else 'b'
+            piece_name_map = {
+                PieceType.PAWN: 'pawn',
+                PieceType.KNIGHT: 'knight',
+                PieceType.BISHOP: 'bishop',
+                PieceType.ROOK: 'rook',
+                PieceType.QUEEN: 'queen',
+            }
+            piece_name = f"{color_prefix}_{piece_name_map.get(piece_type, 'pawn')}"
+            piece_image = self.piece_images.get(piece_name)
+            
+            if piece_image:
+                # Scale down the piece image
+                scaled_image = pygame.transform.scale(piece_image, (piece_size, piece_size))
+                self.screen.blit(scaled_image, (x, y))
+            
+            x += piece_size
+            count += 1
+            
+            # Move to next row if needed
+            if count % pieces_per_row == 0:
+                x = sidebar_x + 10
+                y += piece_size
+        
+        return y + piece_size + 10

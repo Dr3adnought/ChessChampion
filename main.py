@@ -185,6 +185,10 @@ while game_active:
         
         game.draw(SCREEN, SQUARE_SIZE, LIGHT_COLOR_SQUARE, DARK_COLOR_SQUARE, HIGHLIGHT_COLOR, PIECES, animating_from_pos)
         
+        # Draw captured pieces sidebar
+        if game.renderer:
+            game.renderer.draw_captured_pieces_sidebar(game.game_state, BOARD_SIZE, SIDEBAR_WIDTH)
+        
         # Draw the animated piece on top
         if animation_manager.is_animating():
             animation_manager.draw_animation(SCREEN)

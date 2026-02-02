@@ -22,6 +22,7 @@ class GameState:
     - Game status (active, check, checkmate, stalemate)
     - Half-move clock (for 50-move rule)
     - Full move number
+    - Captured pieces
     """
     board: Board
     current_turn: Color = Color.WHITE
@@ -30,6 +31,8 @@ class GameState:
     half_move_clock: int = 0  # For 50-move rule
     full_move_number: int = 1
     selected_position: Optional[Position] = None
+    captured_by_white: List[PieceType] = field(default_factory=list)  # Pieces captured by white
+    captured_by_black: List[PieceType] = field(default_factory=list)  # Pieces captured by black
     
     def __post_init__(self):
         """Initialize the validator after the state is created."""
@@ -80,6 +83,15 @@ class GameState:
         """Execute a move on the board, handling all special cases."""
         piece = self.board.get_piece(move.from_pos)
         
+        # Track captured pieces
+        if move.move_type == MoveType.CAPTURE or move.move_type == MoveType.PROMOTION:
+            captured_piece = self.board.get_piece(move.to_pos)
+            if captured_piece:
+                if piece.color == Color.WHITE:
+                    self.captured_by_white.append(captured_piece.piece_type)
+                else:
+                    self.captured_by_black.append(captured_piece.piece_type)
+        
         # Clear en passant target from previous move
         self.board.en_passant_target = None
         
@@ -118,8 +130,16 @@ class GameState:
     
     def _execute_en_passant(self, move: Move, piece: 'Piece'):
         """Execute en passant capture."""
-        self.board.move_piece(move.from_pos, move.to_pos)
+        # Track captured pawn
         captured_pawn_pos = Position(move.from_pos.row, move.to_pos.col)
+        captured_pawn = self.board.get_piece(captured_pawn_pos)
+        if captured_pawn:
+            if piece.color == Color.WHITE:
+                self.captured_by_white.append(captured_pawn.piece_type)
+            else:
+                self.captured_by_black.append(captured_pawn.piece_type)
+        
+        self.board.move_piece(move.from_pos, move.to_pos)
         self.board.remove_piece(captured_pawn_pos)
     
     def _execute_promotion(self, move: Move, piece: 'Piece'):
