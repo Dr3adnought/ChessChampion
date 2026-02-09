@@ -39,6 +39,10 @@ class Renderer:
         # Font for text
         self.font = pygame.font.Font(None, 36)
         self.small_font = pygame.font.Font(None, 24)
+        
+        # Undo/Redo button rectangles
+        self.undo_button_rect = None
+        self.redo_button_rect = None
     
     def draw_board(self, game_state: GameState, legal_moves: Optional[list] = None, 
                    last_move: Optional[tuple] = None, animating_position: Optional[Position] = None):
@@ -344,3 +348,68 @@ class Renderer:
                 y += piece_size
         
         return y + piece_size + 10
+    
+    def draw_undo_redo_buttons(self, game_state: GameState, sidebar_x: int, sidebar_width: int, board_height: int):
+        """
+        Draw undo and redo buttons in the sidebar.
+        
+        Args:
+            game_state: Current game state to check if undo/redo available
+            sidebar_x: X position where sidebar starts
+            sidebar_width: Width of the sidebar
+            board_height: Height of the board for positioning
+        """
+        button_width = (sidebar_width - 30) // 2
+        button_height = 40
+        spacing = 10
+        y_pos = board_height - 60
+        
+        # Undo button
+        undo_x = sidebar_x + 10
+        self.undo_button_rect = pygame.Rect(undo_x, y_pos, button_width, button_height)
+        
+        # Color based on availability
+        if game_state.can_undo():
+            undo_color = (70, 130, 180)  # Blue when active
+            text_color = (255, 255, 255)
+        else:
+            undo_color = (100, 100, 100)  # Gray when disabled
+            text_color = (150, 150, 150)
+        
+        pygame.draw.rect(self.screen, undo_color, self.undo_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.undo_button_rect, width=2, border_radius=5)
+        
+        undo_text = self.small_font.render("Undo", True, text_color)
+        undo_text_rect = undo_text.get_rect(center=self.undo_button_rect.center)
+        self.screen.blit(undo_text, undo_text_rect)
+        
+        # Redo button
+        redo_x = sidebar_x + button_width + 20
+        self.redo_button_rect = pygame.Rect(redo_x, y_pos, button_width, button_height)
+        
+        # Color based on availability
+        if game_state.can_redo():
+            redo_color = (70, 130, 180)  # Blue when active
+            text_color = (255, 255, 255)
+        else:
+            redo_color = (100, 100, 100)  # Gray when disabled
+            text_color = (150, 150, 150)
+        
+        pygame.draw.rect(self.screen, redo_color, self.redo_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.redo_button_rect, width=2, border_radius=5)
+        
+        redo_text = self.small_font.render("Redo", True, text_color)
+        redo_text_rect = redo_text.get_rect(center=self.redo_button_rect.center)
+        self.screen.blit(redo_text, redo_text_rect)
+    
+    def is_undo_button_clicked(self, pos: tuple) -> bool:
+        """Check if undo button was clicked."""
+        if self.undo_button_rect:
+            return self.undo_button_rect.collidepoint(pos)
+        return False
+    
+    def is_redo_button_clicked(self, pos: tuple) -> bool:
+        """Check if redo button was clicked."""
+        if self.redo_button_rect:
+            return self.redo_button_rect.collidepoint(pos)
+        return False

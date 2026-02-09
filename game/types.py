@@ -96,6 +96,11 @@ class Move:
     promotion_piece: Optional[PieceType] = None
     captured_piece: Optional['Piece'] = None
     
+    # Additional state for undo support
+    previous_castling_rights: Optional['CastlingRights'] = None
+    previous_en_passant: Optional[Position] = None
+    previous_half_move_clock: int = 0
+    
     def to_algebraic(self, piece_type: PieceType, is_capture: bool = False) -> str:
         """Convert move to algebraic notation."""
         piece_symbol = '' if piece_type == PieceType.PAWN else piece_type.value[0].upper()

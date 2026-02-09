@@ -23,6 +23,7 @@ class GameState:
     - Half-move clock (for 50-move rule)
     - Full move number
     - Captured pieces
+    - Undo/redo support
     """
     board: Board
     current_turn: Color = Color.WHITE
@@ -33,6 +34,7 @@ class GameState:
     selected_position: Optional[Position] = None
     captured_by_white: List[PieceType] = field(default_factory=list)  # Pieces captured by white
     captured_by_black: List[PieceType] = field(default_factory=list)  # Pieces captured by black
+    redo_stack: List[Move] = field(default_factory=list)  # For redo functionality
     
     def __post_init__(self):
         """Initialize the validator after the state is created."""
@@ -52,11 +54,17 @@ class GameState:
         if not self.validator.is_move_legal(move):
             return False
         
+        # Store previous state for undo
+        move.previous_castling_rights = self.board.castling_rights.copy()
+        move.previous_en_passant = self.board.en_passant_target
+        move.previous_half_move_clock = self.half_move_clock
+        
         # Execute the move
         self._execute_move(move)
         
-        # Add to history
+        # Add to history and clear redo stack
         self.move_history.append(move)
+        self.redo_stack.clear()
         
         # Update half-move clock
         if piece.piece_type == PieceType.PAWN or move.move_type == MoveType.CAPTURE:
@@ -232,3 +240,160 @@ class GameState:
             notation += "+"
         
         return notation
+    
+    def can_undo(self) -> bool:
+        """Check if undo is possible."""
+        return len(self.move_history) > 0
+    
+    def can_redo(self) -> bool:
+        """Check if redo is possible."""
+        return len(self.redo_stack) > 0
+    
+    def undo_move(self) -> bool:
+        """
+        Undo the last move.
+        Returns True if successful, False if no moves to undo.
+        """
+        if not self.can_undo():
+            return False
+        
+        # Pop the last move
+        move = self.move_history.pop()
+        
+        # Add to redo stack
+        self.redo_stack.append(move)
+        
+        # Reverse the move
+        self._reverse_move(move)
+        
+        # Restore previous state
+        self.board.castling_rights = move.previous_castling_rights
+        self.board.en_passant_target = move.previous_en_passant
+        self.half_move_clock = move.previous_half_move_clock
+        
+        # Switch turns back
+        self.current_turn = self.current_turn.opposite()
+        
+        # Update full move number (decrement if we just undid black's move)
+        if self.current_turn == Color.BLACK:
+            self.full_move_number -= 1
+        
+        # Update validator
+        self.validator = MoveValidator(self.board)
+        
+        # Update game status
+        self._update_game_status()
+        
+        # Clear selection
+        self.selected_position = None
+        
+        return True
+    
+    def redo_move(self) -> bool:
+        """
+        Redo a previously undone move.
+        Returns True if successful, False if no moves to redo.
+        """
+        if not self.can_redo():
+            return False
+        
+        # Pop from redo stack
+        move = self.redo_stack.pop()
+        
+        # Re-execute the move (but don't validate again)
+        piece = self.board.get_piece(move.from_pos)
+        if piece is None:
+            return False
+        
+        # Execute the move
+        self._execute_move(move)
+        
+        # Add back to history (but don't clear redo stack this time)
+        self.move_history.append(move)
+        
+        # Update half-move clock
+        if piece.piece_type == PieceType.PAWN or move.move_type == MoveType.CAPTURE:
+            self.half_move_clock = 0
+        else:
+            self.half_move_clock += 1
+        
+        # Update full move number
+        if self.current_turn == Color.BLACK:
+            self.full_move_number += 1
+        
+        # Switch turns
+        self.current_turn = self.current_turn.opposite()
+        
+        # Update validator
+        self.validator = MoveValidator(self.board)
+        
+        # Update game status
+        self._update_game_status()
+        
+        # Clear selection
+        self.selected_position = None
+        
+        return True
+    
+    def _reverse_move(self, move: Move):
+        """Reverse a move on the board."""
+        piece = self.board.get_piece(move.to_pos)
+        
+        if move.move_type == MoveType.CASTLING_KINGSIDE:
+            # Reverse kingside castling
+            row = move.to_pos.row
+            self.board.move_piece(move.to_pos, move.from_pos)  # Move king back
+            self.board.move_piece(Position(row, 5), Position(row, 7))  # Move rook back
+        
+        elif move.move_type == MoveType.CASTLING_QUEENSIDE:
+            # Reverse queenside castling
+            row = move.to_pos.row
+            self.board.move_piece(move.to_pos, move.from_pos)  # Move king back
+            self.board.move_piece(Position(row, 3), Position(row, 0))  # Move rook back
+        
+        elif move.move_type == MoveType.EN_PASSANT:
+            # Reverse en passant
+            self.board.move_piece(move.to_pos, move.from_pos)
+            # Restore captured pawn
+            captured_pawn_pos = Position(move.from_pos.row, move.to_pos.col)
+            if move.captured_piece:
+                self.board.set_piece(captured_pawn_pos, move.captured_piece)
+                # Remove from captured list
+                if piece and piece.color == Color.WHITE:
+                    if move.captured_piece.piece_type in self.captured_by_white:
+                        self.captured_by_white.remove(move.captured_piece.piece_type)
+                elif piece:
+                    if move.captured_piece.piece_type in self.captured_by_black:
+                        self.captured_by_black.remove(move.captured_piece.piece_type)
+        
+        elif move.move_type == MoveType.PROMOTION:
+            # Reverse promotion - restore pawn
+            self.board.remove_piece(move.to_pos)
+            if piece:
+                from game.pieces import Pawn
+                pawn = Pawn(piece.color)
+                self.board.set_piece(move.from_pos, pawn)
+            # Restore captured piece if any
+            if move.captured_piece:
+                self.board.set_piece(move.to_pos, move.captured_piece)
+                # Remove from captured list
+                if piece and piece.color == Color.WHITE:
+                    if move.captured_piece.piece_type in self.captured_by_white:
+                        self.captured_by_white.remove(move.captured_piece.piece_type)
+                elif piece:
+                    if move.captured_piece.piece_type in self.captured_by_black:
+                        self.captured_by_black.remove(move.captured_piece.piece_type)
+        
+        else:
+            # Normal move, capture, or pawn double move
+            self.board.move_piece(move.to_pos, move.from_pos)
+            # Restore captured piece if any
+            if move.captured_piece:
+                self.board.set_piece(move.to_pos, move.captured_piece)
+                # Remove from captured list
+                if piece and piece.color == Color.WHITE:
+                    if move.captured_piece.piece_type in self.captured_by_white:
+                        self.captured_by_white.remove(move.captured_piece.piece_type)
+                elif piece:
+                    if move.captured_piece.piece_type in self.captured_by_black:
+                        self.captured_by_black.remove(move.captured_piece.piece_type)

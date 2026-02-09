@@ -94,6 +94,18 @@ while game_active:
             if event.type == pygame.QUIT:
                 running = False
                 game_active = False
+            elif event.type == pygame.KEYDOWN:
+                # Handle keyboard shortcuts
+                if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    # Ctrl+Z: Undo
+                    if not animation_manager.is_busy() and not game.game_over:
+                        if game.game_state.undo_move():
+                            print("Move undone")
+                elif event.key == pygame.K_y and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    # Ctrl+Y: Redo
+                    if not animation_manager.is_busy() and not game.game_over:
+                        if game.game_state.redo_move():
+                            print("Move redone")
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if game.game_over and game_over_menu_shown:
                     # Handle game over menu clicks
@@ -111,8 +123,21 @@ while game_active:
                         running = False
                         game_active = False
                 elif not game.game_over and not animation_manager.is_busy():
-                    # Only allow clicks when not animating
-                    mouse_x, mouse_y = event.pos
+                    mouse_pos = event.pos
+                    
+                    # Check if undo/redo buttons were clicked
+                    if game.renderer:
+                        if game.renderer.is_undo_button_clicked(mouse_pos):
+                            if game.game_state.undo_move():
+                                print("Move undone")
+                            continue
+                        elif game.renderer.is_redo_button_clicked(mouse_pos):
+                            if game.game_state.redo_move():
+                                print("Move redone")
+                            continue
+                    
+                    # Only allow board clicks when not animating
+                    mouse_x, mouse_y = mouse_pos
                     clicked_col = mouse_x // SQUARE_SIZE
                     clicked_row = mouse_y // SQUARE_SIZE
                     
@@ -194,6 +219,8 @@ while game_active:
         # Draw captured pieces sidebar
         if game.renderer:
             game.renderer.draw_captured_pieces_sidebar(game.game_state, BOARD_SIZE, SIDEBAR_WIDTH)
+            # Draw undo/redo buttons
+            game.renderer.draw_undo_redo_buttons(game.game_state, BOARD_SIZE, SIDEBAR_WIDTH, HEIGHT)
         
         # Draw the animated piece on top
         if animation_manager.is_animating():
