@@ -57,18 +57,22 @@ game_active = True
 while game_active:
     # Show menu and get player choices
     menu = Menu(SCREEN, WIDTH, HEIGHT)
-    difficulty, ai_color, ai_depth = menu.run()
+    game_mode, difficulty, ai_color, ai_depth = menu.run()
 
-    print(f"\nStarting game with {difficulty.upper()} difficulty")
-    print(f"You are playing as {('WHITE' if ai_color == 'black' else 'BLACK')}")
-    print(f"AI depth: {ai_depth}\n")
+    if game_mode == 'pvp':
+        print("\nStarting Player vs Player game")
+        print("White moves first - Pass and play!\n")
+    else:
+        print(f"\nStarting game with {difficulty.upper()} difficulty")
+        print(f"You are playing as {('WHITE' if ai_color == 'black' else 'BLACK')}")
+        print(f"AI depth: {ai_depth}\n")
 
     # Initialize the game
     game = ChessGame()
 
-    # Initialize AI player with selected difficulty
-    AI_PLAYER_COLOR = ai_color
-    ai_player = AIPlayer(game, AI_PLAYER_COLOR, depth=ai_depth)
+    # Initialize AI player only for PvAI mode
+    AI_PLAYER_COLOR = ai_color if game_mode == 'pvai' else None
+    ai_player = AIPlayer(game, AI_PLAYER_COLOR, depth=ai_depth) if game_mode == 'pvai' else None
 
     # Initialize animation manager
     animation_manager = AnimationManager()
@@ -77,8 +81,8 @@ while game_active:
     player_move_pending = False
     ai_move_pending = False
     
-    # If AI plays white, it should move first
-    ai_should_move_first = (AI_PLAYER_COLOR == 'white')
+    # If AI plays white, it should move first (only for PvAI)
+    ai_should_move_first = (game_mode == 'pvai' and AI_PLAYER_COLOR == 'white')
 
     # Game loop
     running = True
@@ -115,6 +119,7 @@ while game_active:
                     # Store the previous board state for comparison
                     old_turn = game.turn
                     
+                    # Pass AI color only in PvAI mode to prevent interaction during AI turn
                     game.handle_click(clicked_row, clicked_col, ai_player_color=AI_PLAYER_COLOR)
                     
                     # Check if a move was made (turn changed)
@@ -129,18 +134,19 @@ while game_active:
                                 if piece_image:
                                     animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
                         
-                        # Mark that AI should move after animation completes
-                        ai_move_pending = True
+                        # Mark that AI should move after animation completes (only in PvAI mode)
+                        if game_mode == 'pvai':
+                            ai_move_pending = True
 
-        # Handle AI move after player animation completes and delay
-        if ai_move_pending and not animation_manager.is_busy():
+        # Handle AI move after player animation completes and delay (only in PvAI mode)
+        if game_mode == 'pvai' and ai_move_pending and not animation_manager.is_busy():
             # Player animation is done, add a delay before AI thinks
             animation_manager.start_delay(800)  # 800ms delay to show player's move
             ai_move_pending = False
             player_move_pending = True
         
-        # Handle AI first move (when AI plays white)
-        if ai_should_move_first and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
+        # Handle AI first move (when AI plays white) - only in PvAI mode
+        if game_mode == 'pvai' and ai_should_move_first and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
             # Store old board state before AI move
             old_turn = game.turn
             
@@ -158,8 +164,8 @@ while game_active:
             
             ai_should_move_first = False  # Only do this once
         
-        # AI makes a move after delay (subsequent moves)
-        if player_move_pending and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
+        # AI makes a move after delay (subsequent moves) - only in PvAI mode
+        if game_mode == 'pvai' and player_move_pending and not animation_manager.is_busy() and not game.game_over and game.turn == AI_PLAYER_COLOR:
             # Store old board state before AI move
             old_turn = game.turn
             
