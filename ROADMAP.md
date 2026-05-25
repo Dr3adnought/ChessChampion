@@ -416,15 +416,20 @@ Priority: Nice-to-have enhancements
 #### 13. Online Multiplayer 🌐
 **Complexity:** Very High 
 **Impact:** High  
-**Status:** Future consideration
+**Status:** Planned (phased delivery)
 
-**Features:**
+**Features (target state):**
 - Play against remote opponents
 - Matchmaking system
 - Friend system
 - Chat functionality
 - Spectator mode
 - Tournament system
+
+**Phased Scope (recommended):**
+- Phase A: Direct PvP by invite code (host/join), no accounts
+- Phase B: Persistent accounts, friend list, reconnect flow
+- Phase C: Matchmaking, ratings sync, tournaments, spectator mode
 
 **Technical Considerations:**
 - Requires server infrastructure
@@ -434,7 +439,9 @@ Priority: Nice-to-have enhancements
 - Latency handling
 
 **Implementation Notes:**
-- Major undertaking
+- Major undertaking; deliver as incremental slices
+- Start with deterministic move relay protocol and server-authoritative turn validation
+- Add reconnect and latency-tolerant clock synchronization before matchmaking
 - Consider using chess.com/lichess APIs instead
 - Or implement as separate "Online Edition"
 
@@ -442,7 +449,29 @@ Priority: Nice-to-have enhancements
 
 ---
 
-#### 14. AI Improvements ⭐⭐
+#### 14. Desktop Packaging & Distribution 📦
+**Complexity:** Medium
+**Impact:** High
+**Status:** Planned
+
+**Features:**
+- One-click distributable builds for Windows (`.exe` installer)
+- Portable build option (zip, no installer)
+- Branded app icon, version metadata, and release notes
+- Include required assets (`assets/`, sounds, piece sprites) in packaged app
+- Optional auto-update check endpoint (future)
+
+**Implementation Notes:**
+- Primary path: PyInstaller for local executable generation
+- Installer path: Inno Setup or NSIS for signed installer output
+- Add CI release workflow to produce versioned artifacts on tags
+- Add smoke test checklist for packaged build startup, save/load, and clock behavior
+
+**Dependencies:** Stable settings/config layout
+
+---
+
+#### 15. AI Improvements ⭐⭐
 **Complexity:** High (ongoing)  
 **Impact:** Medium  
 **Status:** Continuous improvement
@@ -466,7 +495,7 @@ Priority: Nice-to-have enhancements
 
 ---
 
-#### 15. Analysis Engine Integration 🔧
+#### 16. Analysis Engine Integration 🔧
 **Complexity:** High 
 **Impact:** Medium-High  
 **Status:** Future consideration
@@ -538,7 +567,8 @@ Priority: Nice-to-have enhancements
 - [ ] Reduce memory allocations in hot paths
 
 ### Code Quality:
-- [ ] Add comprehensive unit tests
+- [x] Add unit test baseline (save/load regression + schema/store/timer unit tests)
+- [ ] Expand comprehensive unit tests across core chess engine modules
 - [ ] Add integration tests
 - [ ] Create test coverage report
 - [ ] Add type checking with mypy
@@ -561,6 +591,39 @@ Priority: Nice-to-have enhancements
 - [ ] Installation guide for different platforms
 - [ ] Tutorial creation guide
 - [ ] Development setup guide
+
+---
+
+## ✅ Preflight Checklist (Packaging + Online PvP + Testing)
+
+Complete these before committing to full distribution and multiplayer implementation.
+
+### Foundations
+- [ ] Add runtime path utility for source + packaged execution (assets/settings/saves)
+- [ ] Move writable files (saves/settings/logs) to user data folder strategy
+- [ ] Introduce app version constant + expose in UI/build metadata
+- [ ] Define protocol versioning and message envelope contract for network play
+
+### Packaging Readiness
+- [ ] Add first PyInstaller build configuration/spec
+- [ ] Verify packaged asset inclusion (pieces, sounds, UI assets)
+- [ ] Add release smoke checklist (startup, move flow, save/load, timer, promotion, undo/redo)
+- [ ] Add tag-driven CI artifact build plan for reproducible releases
+
+### Online PvP Readiness
+- [ ] Choose and lock authority model (recommended: server-authoritative)
+- [ ] Define Phase A network events (host, join, move_intent, move_accepted, resync, resign, draw)
+- [ ] Add reconnect token + session resume strategy
+- [ ] Add desync guardrails (move number + board hash/FEN checkpoint)
+- [ ] Define authoritative clock sync behavior for timed games
+
+### Testing Baseline
+- [x] Save/Load regression tests in `tests/test_save_load_regression.py`
+- [x] Schema validation unit tests in `tests/test_schema_validation_unit.py`
+- [x] Store-layer unit tests in `tests/test_store_layer_unit.py`
+- [x] Timer unit tests in `tests/test_timer_unit.py`
+- [ ] Add move-validation unit tests (castling/en passant/check constraints)
+- [ ] Add deterministic serialization/deserialization parity tests for random legal games
 
 ---
 
@@ -592,6 +655,13 @@ Target: 1-2 months
 - [ ] User profiles
 - [ ] Elo ratings
 - [ ] Themes & customization
+
+### Version 2.5 (Distribution + Online Foundations)
+Target: 2-3 months
+- [ ] Windows distributable build pipeline (PyInstaller)
+- [ ] Installer packaging and release checklist
+- [ ] Network PvP Phase A spike (host/join + move relay)
+- [ ] Network game synchronization + reconnect baseline
 
 ### Version 3.0 (Advanced)
 Target: 3-6 months
@@ -644,11 +714,13 @@ Target: 6+ months (if pursued)
 1. **Sound Effects** - Fast UX upgrade with clear player feedback
 2. **Basic settings menu** - Expose toggles for sound/theme/coordinate UX
 3. **Game Review Mode** - Leverage completed save/load foundation
+4. **Distribution bootstrap** - Add first PyInstaller spec and packaged-build smoke checklist
+5. **Network PvP technical spike** - Define protocol/events and validate host/join prototype
 
 **After That:**
-4. Move Timer (per-move countdown)
-5. Tutorial System
-6. Profile/statistics groundwork
+6. Move Timer (per-move countdown)
+7. Tutorial System
+8. Profile/statistics groundwork
 
 ---
 
