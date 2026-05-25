@@ -100,6 +100,43 @@ class SaveLoadRegressionTests(unittest.TestCase):
         self.assertEqual(loaded_game.timer.current_player, Color.WHITE)
         self.assertTrue(loaded_game.timer.is_time_out(Color.WHITE))
 
+    def test_online_session_metadata_survives_save_load(self):
+        game = ChessGame(5, 0)
+        file_name = "sl10-online-session.json"
+
+        save_result = save_game(
+            game,
+            source="manual",
+            save_id="sl10-online-session",
+            file_name=file_name,
+            session_meta={
+                "mode": "online",
+                "players": {"white": "Online White", "black": "Online Black"},
+                "ai": {"enabled": False, "color": "black", "difficulty": "none", "depth": 0},
+                "network": {
+                    "role": "guest",
+                    "invite_code": "ZXCV12",
+                    "side": "black",
+                    "game_id": "game_session_01",
+                    "player_id": "player_guest_01",
+                    "resume_token": "rt_resume_01",
+                    "resume_token_expires_at_utc": "2026-05-25T12:30:00Z",
+                    "last_seen_event_id": "evt_server_01",
+                },
+            },
+        )
+        self.assertTrue(save_result.get("success"), save_result.get("error", "save failed"))
+        self.created_files.append(file_name)
+
+        load_result = load_game(file_name)
+        self.assertTrue(load_result.get("success"), load_result.get("error", "load failed"))
+
+        session_meta = load_result["session_meta"]
+        self.assertEqual(session_meta.get("mode"), "online")
+        self.assertEqual(session_meta.get("network", {}).get("invite_code"), "ZXCV12")
+        self.assertEqual(session_meta.get("network", {}).get("resume_token"), "rt_resume_01")
+        self.assertEqual(session_meta.get("network", {}).get("side"), "black")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -104,7 +104,7 @@ def _build_session_payload(session_meta: Optional[dict[str, Any]]) -> dict[str, 
     session_meta = session_meta or {}
 
     mode = session_meta.get("mode", "pvp")
-    if mode not in ("pvp", "pvai"):
+    if mode not in ("pvp", "pvai", "online"):
         mode = "pvp"
 
     players_meta = session_meta.get("players", {})
@@ -118,6 +118,21 @@ def _build_session_payload(session_meta: Optional[dict[str, Any]]) -> dict[str, 
         "depth": session_meta.get("ai", {}).get("depth", 2),
     }
 
+    network_meta = session_meta.get("network", {})
+    if not isinstance(network_meta, dict):
+        network_meta = {}
+
+    network_payload: dict[str, Any] = {
+        "role": str(network_meta.get("role", "")),
+        "invite_code": str(network_meta.get("invite_code", "")),
+        "side": str(network_meta.get("side", "")),
+        "game_id": str(network_meta.get("game_id", "")),
+        "player_id": str(network_meta.get("player_id", "")),
+        "resume_token": str(network_meta.get("resume_token", "")),
+        "resume_token_expires_at_utc": str(network_meta.get("resume_token_expires_at_utc", "")),
+        "last_seen_event_id": str(network_meta.get("last_seen_event_id", "")),
+    }
+
     return {
         "mode": mode,
         "players": {
@@ -125,6 +140,7 @@ def _build_session_payload(session_meta: Optional[dict[str, Any]]) -> dict[str, 
             "black": str(black_name),
         },
         "ai": ai_payload,
+        "network": network_payload,
     }
 
 

@@ -93,8 +93,8 @@ def _validate_session(session: Any, result: ValidationResult) -> None:
         return
 
     mode = session.get("mode")
-    if not isinstance(mode, str) or mode not in ("pvp", "pvai"):
-        result.add_error("session.mode", "session.mode must be 'pvp' or 'pvai'.")
+    if not isinstance(mode, str) or mode not in ("pvp", "pvai", "online"):
+        result.add_error("session.mode", "session.mode must be 'pvp', 'pvai', or 'online'.")
 
     players = session.get("players")
     if not isinstance(players, dict):
@@ -111,6 +111,10 @@ def _validate_session(session: Any, result: ValidationResult) -> None:
     ai = session.get("ai")
     if ai is not None and not isinstance(ai, dict):
         result.add_error("session.ai", "session.ai must be an object when present.")
+
+    network = session.get("network")
+    if network is not None and not isinstance(network, dict):
+        result.add_error("session.network", "session.network must be an object when present.")
 
 
 def _validate_clock(clock: Any, result: ValidationResult) -> None:

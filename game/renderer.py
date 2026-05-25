@@ -48,6 +48,7 @@ class Renderer:
         # Save/Load button rectangles
         self.save_button_rect = None
         self.load_button_rect = None
+        self.reconnect_button_rect = None
     
     def draw_board(self, game_state: GameState, legal_moves: Optional[list] = None, 
                    last_move: Optional[tuple] = None, animating_position: Optional[Position] = None):
@@ -517,6 +518,66 @@ class Renderer:
         load_text = self.small_font.render("Load", True, load_text_color)
         load_text_rect = load_text.get_rect(center=self.load_button_rect.center)
         self.screen.blit(load_text, load_text_rect)
+
+    def draw_online_controls(
+        self,
+        can_reconnect: bool,
+        sidebar_x: int,
+        sidebar_width: int,
+        board_height: int,
+        invite_code: str = "",
+        side: str = "",
+        connection_state: str = "offline",
+        status_detail: str = "",
+    ):
+        """Draw online status and reconnect controls in the sidebar."""
+        panel_rect = pygame.Rect(sidebar_x + 10, board_height - 190, sidebar_width - 20, 70)
+        pygame.draw.rect(self.screen, (38, 38, 38), panel_rect, border_radius=6)
+        pygame.draw.rect(self.screen, (90, 90, 90), panel_rect, width=1, border_radius=6)
+
+        side_label = side.capitalize() if side in ("white", "black") else "Pending"
+        invite_label = invite_code if invite_code else "----"
+        state_label = connection_state.replace('_', ' ').capitalize() if connection_state else 'Offline'
+
+        state_color = (170, 170, 170)
+        if connection_state in ("connected", "resumed", "resynced"):
+            state_color = (120, 210, 255)
+        elif connection_state == "reconnecting":
+            state_color = (255, 200, 120)
+        elif connection_state == "disconnected":
+            state_color = (255, 140, 140)
+
+        title = self.small_font.render(f"Online: {side_label}", True, (220, 220, 220))
+        state_text = self.small_font.render(state_label, True, state_color)
+        hint = self.small_font.render(f"Code {invite_label} | Ctrl+R", True, (170, 170, 170))
+        self.screen.blit(title, (panel_rect.x + 10, panel_rect.y + 8))
+        self.screen.blit(state_text, (panel_rect.right - state_text.get_width() - 10, panel_rect.y + 8))
+        self.screen.blit(hint, (panel_rect.x + 10, panel_rect.y + 26))
+
+        if status_detail:
+            detail = status_detail
+            if len(detail) > 26:
+                detail = detail[:23] + "..."
+            detail_text = self.small_font.render(detail, True, (190, 190, 190))
+            self.screen.blit(detail_text, (panel_rect.x + 10, panel_rect.y + 44))
+
+        button_height = 40
+        button_y = board_height - 240
+        self.reconnect_button_rect = pygame.Rect(sidebar_x + 10, button_y, sidebar_width - 20, button_height)
+
+        if can_reconnect:
+            reconnect_color = (72, 120, 185)
+            reconnect_text_color = (255, 255, 255)
+        else:
+            reconnect_color = (100, 100, 100)
+            reconnect_text_color = (150, 150, 150)
+
+        pygame.draw.rect(self.screen, reconnect_color, self.reconnect_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.reconnect_button_rect, width=2, border_radius=5)
+
+        reconnect_text = self.small_font.render("Reconnect", True, reconnect_text_color)
+        reconnect_text_rect = reconnect_text.get_rect(center=self.reconnect_button_rect.center)
+        self.screen.blit(reconnect_text, reconnect_text_rect)
     
     def is_undo_button_clicked(self, pos: tuple) -> bool:
         """Check if undo button was clicked."""
@@ -540,4 +601,10 @@ class Renderer:
         """Check if load button was clicked."""
         if self.load_button_rect:
             return self.load_button_rect.collidepoint(pos)
+        return False
+
+    def is_reconnect_button_clicked(self, pos: tuple) -> bool:
+        """Check if reconnect button was clicked."""
+        if self.reconnect_button_rect:
+            return self.reconnect_button_rect.collidepoint(pos)
         return False

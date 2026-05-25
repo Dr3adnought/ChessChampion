@@ -81,6 +81,26 @@ class SchemaValidationUnitTests(unittest.TestCase):
         self.assertFalse(result.valid)
         self.assertTrue(any(err.path == "position.board" for err in result.errors))
 
+    def test_online_session_with_network_metadata_passes(self):
+        payload = make_valid_payload()
+        payload["session"]["mode"] = "online"
+        payload["session"]["ai"] = {"enabled": False, "color": "black", "difficulty": "none", "depth": 0}
+        payload["session"]["network"] = {
+            "role": "host",
+            "invite_code": "ABCD12",
+            "side": "white",
+            "game_id": "game_123",
+            "player_id": "player_123",
+            "resume_token": "rt_123",
+            "resume_token_expires_at_utc": "2026-05-25T12:30:00Z",
+            "last_seen_event_id": "evt_123",
+        }
+
+        result = validate_payload(payload)
+
+        self.assertTrue(result.valid)
+        self.assertEqual(len(result.errors), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

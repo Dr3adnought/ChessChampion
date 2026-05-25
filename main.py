@@ -114,6 +114,30 @@ def build_session_meta(game_mode: str, difficulty: str, ai_player_color: str, ai
     }
 
 
+def build_runtime_session_meta(
+    game_mode: str,
+    difficulty: str,
+    ai_player_color: str | None,
+    ai_depth: int,
+    online_session: dict | None = None,
+) -> dict:
+    """Build persisted session metadata, including online reconnect context when available."""
+    session_meta = build_session_meta(game_mode, difficulty, ai_player_color or 'black', ai_depth)
+    if game_mode == 'online':
+        network = online_session if isinstance(online_session, dict) else {}
+        session_meta['network'] = {
+            'role': str(network.get('role', '')),
+            'invite_code': str(network.get('invite_code', '')),
+            'side': str(network.get('side', '')),
+            'game_id': str(network.get('game_id', '')),
+            'player_id': str(network.get('player_id', '')),
+            'resume_token': str(network.get('resume_token', '')),
+            'resume_token_expires_at_utc': str(network.get('resume_token_expires_at_utc', '')),
+            'last_seen_event_id': str(network.get('last_seen_event_id', '')),
+        }
+    return session_meta
+
+
 def perform_autosave(game: ChessGame, session_meta: dict) -> bool:
     """Write rolling autosave file and return success state."""
     result = save_game(
@@ -136,10 +160,20 @@ def bootstrap_online_client(
     invite_code: str,
     time_minutes: int,
     time_increment: int,
-) -> tuple[SessionManagerClientAdapter | None, str, int, int, str | None, bool]:
+) -> tuple[SessionManagerClientAdapter | None, str, int, int, str | None, bool, dict]:
     """Initialize in-process online adapter flow and return status text."""
     adapter = SessionManagerClientAdapter(ONLINE_HUB)
     adapter.connect()
+    session = {
+        'role': role,
+        'invite_code': invite_code.strip().upper(),
+        'side': None,
+        'game_id': None,
+        'player_id': None,
+        'resume_token': None,
+        'resume_token_expires_at_utc': None,
+        'last_seen_event_id': '',
+    }
 
     if role == 'host':
         adapter.send(
@@ -153,16 +187,18 @@ def bootstrap_online_client(
         host_created = next((e for e in events if e.event_type == 'host_created'), None)
         if not host_created:
             adapter.disconnect()
-            return None, 'Online host setup failed', time_minutes, time_increment, None, False
+            return None, 'Online host setup failed', time_minutes, time_increment, None, False, session
+
+        _update_online_session(session, host_created, adapter)
 
         invite = host_created.payload.get('invite_code', '')
         side = host_created.payload.get('host_side', 'white')
-        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment, side, False
+        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment, side, False, session
 
     join_code = invite_code.strip().upper()
     if not join_code:
         adapter.disconnect()
-        return None, 'Join failed: invite code is required', time_minutes, time_increment, None, False
+        return None, 'Join failed: invite code is required', time_minutes, time_increment, None, False, session
 
     adapter.send('join_request', {'invite_code': join_code})
     events = adapter.poll()
@@ -171,7 +207,11 @@ def bootstrap_online_client(
 
     if not join_accepted:
         adapter.disconnect()
-        return None, f'Join failed for code {join_code}', time_minutes, time_increment, None, False
+        return None, f'Join failed for code {join_code}', time_minutes, time_increment, None, False, session
+
+    _update_online_session(session, join_accepted, adapter)
+    if game_start:
+        _update_online_session(session, game_start, adapter)
 
     resolved_minutes = time_minutes
     resolved_increment = time_increment
@@ -185,7 +225,137 @@ def bootstrap_online_client(
 
     side = join_accepted.payload.get('side', 'black')
     started = game_start is not None
-    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment, side, started
+    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment, side, started, session
+
+
+def _update_online_session(session: dict, network_event, adapter: SessionManagerClientAdapter | None = None) -> None:
+    """Capture reconnect/session identity from authoritative online events."""
+    if not isinstance(session, dict):
+        return
+
+    payload = network_event.payload if hasattr(network_event, 'payload') else {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    if adapter is not None:
+        if adapter.game_id:
+            session['game_id'] = adapter.game_id
+        if adapter.player_id:
+            session['player_id'] = adapter.player_id
+
+    event_id = getattr(network_event, 'event_id', '')
+    if isinstance(event_id, str) and event_id:
+        session['last_seen_event_id'] = event_id
+
+    invite_code = payload.get('invite_code')
+    if isinstance(invite_code, str) and invite_code:
+        session['invite_code'] = invite_code
+
+    game_id = payload.get('game_id')
+    if isinstance(game_id, str) and game_id:
+        session['game_id'] = game_id
+
+    player_id = payload.get('player_id')
+    if isinstance(player_id, str) and player_id:
+        session['player_id'] = player_id
+
+    side = payload.get('side') or payload.get('host_side') or session.get('side')
+    if side in ('white', 'black'):
+        session['side'] = side
+
+    resume_token = payload.get('new_resume_token') or payload.get('resume_token')
+    if isinstance(resume_token, str) and resume_token:
+        session['resume_token'] = resume_token
+
+    resume_expires = payload.get('resume_token_expires_at_utc')
+    if isinstance(resume_expires, str) and resume_expires:
+        session['resume_token_expires_at_utc'] = resume_expires
+
+
+def reconnect_online_client(session: dict) -> tuple[SessionManagerClientAdapter | None, str, dict | None]:
+    """Create a fresh adapter and resume an online session using the stored resume token."""
+    game_id = session.get('game_id')
+    player_id = session.get('player_id')
+    resume_token = session.get('resume_token')
+    if not isinstance(game_id, str) or not game_id:
+        return None, 'Reconnect unavailable: missing game id', None
+    if not isinstance(player_id, str) or not player_id:
+        return None, 'Reconnect unavailable: missing player id', None
+    if not isinstance(resume_token, str) or not resume_token:
+        return None, 'Reconnect unavailable: missing resume token', None
+
+    adapter = SessionManagerClientAdapter(ONLINE_HUB)
+    adapter.connect()
+    adapter.send(
+        'reconnect_request',
+        {
+            'game_id': game_id,
+            'player_id': player_id,
+            'resume_token': resume_token,
+            'last_seen_event_id': session.get('last_seen_event_id', ''),
+        },
+    )
+    events = adapter.poll()
+    accepted = next((e for e in events if e.event_type == 'reconnect_accepted'), None)
+    if not accepted:
+        rejected = next((e for e in events if e.event_type == 'reconnect_rejected'), None)
+        adapter.disconnect()
+        if rejected:
+            reason = rejected.payload.get('reason', 'reconnect rejected')
+            return None, f'Reconnect failed: {reason}', None
+        return None, 'Reconnect failed: no server acknowledgement', None
+
+    _update_online_session(session, accepted, adapter)
+    return adapter, 'Online session resumed', accepted.payload
+
+
+def restore_online_session_from_meta(session_meta: dict | None) -> tuple[dict | None, str | None]:
+    """Extract reconnectable online session metadata from a loaded save session payload."""
+    if not isinstance(session_meta, dict):
+        return None, None
+    if session_meta.get('mode') != 'online':
+        return None, None
+
+    network = session_meta.get('network', {})
+    if not isinstance(network, dict):
+        return None, None
+
+    restored = {
+        'role': str(network.get('role', '')),
+        'invite_code': str(network.get('invite_code', '')).upper(),
+        'side': str(network.get('side', '')),
+        'game_id': str(network.get('game_id', '')),
+        'player_id': str(network.get('player_id', '')),
+        'resume_token': str(network.get('resume_token', '')),
+        'resume_token_expires_at_utc': str(network.get('resume_token_expires_at_utc', '')),
+        'last_seen_event_id': str(network.get('last_seen_event_id', '')),
+    }
+    side = restored.get('side') if restored.get('side') in ('white', 'black') else None
+    return restored, side
+
+
+def apply_reconnect_result(
+    game: ChessGame,
+    online_session: dict | None,
+    online_adapter: SessionManagerClientAdapter | None,
+    online_side: str | None,
+) -> tuple[SessionManagerClientAdapter | None, str | None, bool, bool, str, tuple[int, int, int]]:
+    """Reconnect current online session and apply the returned authoritative snapshot."""
+    if online_session is None:
+        return online_adapter, online_side, False, False, 'Reconnect unavailable', (255, 120, 120)
+
+    if online_adapter is not None:
+        online_adapter.disconnect()
+
+    resumed_adapter, reconnect_status, reconnect_payload = reconnect_online_client(online_session)
+    if resumed_adapter is not None and reconnect_payload is not None:
+        resumed_side = online_session.get('side', online_side)
+        authoritative = reconnect_payload.get('state', {})
+        apply_authoritative_state(game, authoritative.get('state', {}))
+        apply_authoritative_clock(game, authoritative.get('clock', {}))
+        return resumed_adapter, resumed_side, True, False, reconnect_status, (120, 210, 255)
+
+    return None, online_side, False, False, reconnect_status, (255, 120, 120)
 
 # Load piece images once
 PIECES = load_pieces()
@@ -202,8 +372,10 @@ while game_active:
     online_side = None
     online_game_started = False
     online_pending_move = False
+    online_session = None
+    online_connection_state = 'offline'
     if game_mode == 'online':
-        online_adapter, online_status, time_minutes, time_increment, online_side, online_game_started = bootstrap_online_client(
+        online_adapter, online_status, time_minutes, time_increment, online_side, online_game_started, online_session = bootstrap_online_client(
             online_role,
             online_invite,
             time_minutes,
@@ -212,6 +384,7 @@ while game_active:
         if online_adapter is None:
             print(f"\n{online_status}\n")
             continue
+        online_connection_state = 'connected'
         print(f"\n{online_status}\n")
 
     if game_mode == 'pvp':
@@ -270,7 +443,7 @@ while game_active:
     status_color = (255, 255, 255)
     status_message_until = 0
     if game_mode == 'online':
-        status_message = 'Online mode connected (Phase A shim)'
+        status_message = 'Online mode connected. Use Reconnect or Ctrl+R if session recovery is needed'
         status_color = (120, 210, 255)
         status_message_until = pygame.time.get_ticks() + 5000
 
@@ -278,7 +451,7 @@ while game_active:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 if not autosave_written:
-                    session_meta = build_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth)
+                    session_meta = build_runtime_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth, online_session)
                     autosave_written = perform_autosave(game, session_meta)
                 running = False
                 game_active = False
@@ -296,7 +469,7 @@ while game_active:
                             print("Move redone")
                 elif event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     # Ctrl+S: Save game
-                    session_meta = build_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth)
+                    session_meta = build_runtime_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth, online_session)
                     save_result = save_game(game, source='manual', session_meta=session_meta)
                     if save_result.get('success'):
                         status_message = f"Saved: {save_result.get('file_name')}"
@@ -320,6 +493,17 @@ while game_active:
                         status_message = load_result.get('error', 'Unable to list saves')
                         status_color = (255, 120, 120)
                         status_message_until = pygame.time.get_ticks() + 3500
+                elif event.key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    if game_mode == 'online' and online_session is not None:
+                        online_connection_state = 'reconnecting'
+                        online_adapter, online_side, online_game_started, online_pending_move, status_message, status_color = apply_reconnect_result(
+                            game,
+                            online_session,
+                            online_adapter,
+                            online_side,
+                        )
+                        online_connection_state = 'resumed' if online_adapter is not None else 'disconnected'
+                        status_message_until = pygame.time.get_ticks() + 3500
                 elif event.key == pygame.K_ESCAPE and show_load_menu:
                     show_load_menu = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -339,7 +523,7 @@ while game_active:
                                 animation_manager = AnimationManager()
 
                                 loaded_mode = loaded_session.get('mode', 'pvp')
-                                if loaded_mode not in ('pvp', 'pvai'):
+                                if loaded_mode not in ('pvp', 'pvai', 'online'):
                                     loaded_mode = 'pvp'
 
                                 game_mode = loaded_mode
@@ -356,11 +540,35 @@ while game_active:
 
                                     difficulty = str(ai_meta.get('difficulty', 'medium'))
                                     ai_player = AIPlayer(game, AI_PLAYER_COLOR, depth=ai_depth)
+                                    online_adapter = None
+                                    online_session = None
+                                    online_side = None
+                                    online_game_started = False
+                                    online_pending_move = False
+                                    online_connection_state = 'offline'
+                                elif game_mode == 'online':
+                                    AI_PLAYER_COLOR = None
+                                    ai_player = None
+                                    difficulty = 'none'
+                                    ai_depth = 0
+                                    if online_adapter is not None:
+                                        online_adapter.disconnect()
+                                    online_adapter = None
+                                    online_session, online_side = restore_online_session_from_meta(loaded_session)
+                                    online_game_started = False
+                                    online_pending_move = False
+                                    online_connection_state = 'disconnected' if online_session else 'offline'
                                 else:
                                     AI_PLAYER_COLOR = None
                                     ai_player = None
                                     difficulty = 'none'
                                     ai_depth = 0
+                                    online_adapter = None
+                                    online_session = None
+                                    online_side = None
+                                    online_game_started = False
+                                    online_pending_move = False
+                                    online_connection_state = 'offline'
 
                                 ai_move_pending = False
                                 ai_should_move_first = False
@@ -373,6 +581,8 @@ while game_active:
                                 game_over_menu_shown = game.game_over
 
                                 status_message = f"Loaded: {entry.get('file_name')}"
+                                if game_mode == 'online' and online_session is not None:
+                                    status_message = f"Loaded online save: reconnect ready for {(online_side or 'unknown')}"
                                 status_color = (100, 220, 100)
                                 status_message_until = pygame.time.get_ticks() + 3500
                             else:
@@ -401,12 +611,12 @@ while game_active:
                     
                     if choice == 'new_game':
                         if not autosave_written:
-                            session_meta = build_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth)
+                            session_meta = build_runtime_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth, online_session)
                             autosave_written = perform_autosave(game, session_meta)
                         running = False  # Exit current game loop to restart
                     elif choice == 'end_game':
                         if not autosave_written:
-                            session_meta = build_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth)
+                            session_meta = build_runtime_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth, online_session)
                             autosave_written = perform_autosave(game, session_meta)
                         running = False
                         game_active = False
@@ -424,7 +634,7 @@ while game_active:
                                 print("Move redone")
                             continue
                         elif game.renderer.is_save_button_clicked(mouse_pos):
-                            session_meta = build_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth)
+                            session_meta = build_runtime_session_meta(game_mode, difficulty, AI_PLAYER_COLOR, ai_depth, online_session)
                             save_result = save_game(game, source='manual', session_meta=session_meta)
                             if save_result.get('success'):
                                 status_message = f"Saved: {save_result.get('file_name')}"
@@ -448,6 +658,17 @@ while game_active:
                                 status_message = load_result.get('error', 'Unable to list saves')
                                 status_color = (255, 120, 120)
                                 status_message_until = pygame.time.get_ticks() + 3500
+                            continue
+                        elif game_mode == 'online' and game.renderer.is_reconnect_button_clicked(mouse_pos):
+                            online_connection_state = 'reconnecting'
+                            online_adapter, online_side, online_game_started, online_pending_move, status_message, status_color = apply_reconnect_result(
+                                game,
+                                online_session,
+                                online_adapter,
+                                online_side,
+                            )
+                            online_connection_state = 'resumed' if online_adapter is not None else 'disconnected'
+                            status_message_until = pygame.time.get_ticks() + 3500
                             continue
                     
                     # Only allow board clicks when not animating
@@ -629,7 +850,11 @@ while game_active:
         # Poll online events for status updates (Phase A shim).
         if game_mode == 'online' and online_adapter is not None:
             for network_event in online_adapter.poll():
+                if online_session is not None:
+                    _update_online_session(online_session, network_event, online_adapter)
+
                 if network_event.event_type == 'game_start':
+                    online_connection_state = 'connected'
                     status_message = 'Online game_start event received'
                     status_color = (120, 210, 255)
                     status_message_until = pygame.time.get_ticks() + 3000
@@ -657,12 +882,28 @@ while game_active:
                                 animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
                     online_pending_move = False
                 elif network_event.event_type == 'state_resync':
+                    online_connection_state = 'resynced'
                     authoritative_hash = network_event.payload.get('position_hash', '')
                     status_message = f"Online resync hash: {authoritative_hash[:18]}..."
                     status_color = (120, 210, 255)
                     status_message_until = pygame.time.get_ticks() + 2500
                     apply_authoritative_state(game, network_event.payload.get('state', {}))
                     apply_authoritative_clock(game, network_event.payload.get('clock', {}))
+                elif network_event.event_type == 'reconnect_accepted':
+                    online_connection_state = 'resumed'
+                    online_side = online_session.get('side', online_side) if online_session else online_side
+                    online_game_started = True
+                    online_pending_move = False
+                    apply_authoritative_state(game, network_event.payload.get('state', {}).get('state', {}))
+                    apply_authoritative_clock(game, network_event.payload.get('state', {}).get('clock', {}))
+                    status_message = 'Online session resumed'
+                    status_color = (120, 210, 255)
+                    status_message_until = pygame.time.get_ticks() + 3000
+                elif network_event.event_type == 'reconnect_rejected':
+                    online_connection_state = 'disconnected'
+                    status_message = f"Reconnect rejected: {network_event.payload.get('reason', 'unknown')}"
+                    status_color = (255, 120, 120)
+                    status_message_until = pygame.time.get_ticks() + 3000
 
         # Check for timeout
         if game.timer.is_timed and not game.game_over:
@@ -692,6 +933,18 @@ while game_active:
             game.renderer.draw_timers(game.timer, BOARD_SIZE, SIDEBAR_WIDTH, game.game_state.current_turn)
             
             game.renderer.draw_captured_pieces_sidebar(game.game_state, BOARD_SIZE, SIDEBAR_WIDTH)
+            if game_mode == 'online':
+                can_reconnect = bool(online_session and online_session.get('resume_token')) and not animation_manager.is_busy()
+                game.renderer.draw_online_controls(
+                    can_reconnect=can_reconnect,
+                    sidebar_x=BOARD_SIZE,
+                    sidebar_width=SIDEBAR_WIDTH,
+                    board_height=HEIGHT,
+                    invite_code=(online_session or {}).get('invite_code', ''),
+                    side=(online_session or {}).get('side', ''),
+                    connection_state=online_connection_state,
+                    status_detail=status_message if pygame.time.get_ticks() <= status_message_until else '',
+                )
             # Draw save/load buttons
             game.renderer.draw_save_load_buttons(
                 can_save=not animation_manager.is_busy(),
