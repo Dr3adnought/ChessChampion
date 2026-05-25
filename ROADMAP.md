@@ -616,6 +616,8 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Add reconnect token + session resume strategy
 - [x] Add desync guardrails (move number + board hash/FEN checkpoint)
 - [x] Define authoritative clock sync behavior for timed games
+- [x] Implement Phase A in-process authoritative session manager (host/join/move/resync/reconnect)
+- [x] Add transport-backed session hub/client adapter shim (message routing over protocol envelopes)
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`
@@ -626,6 +628,8 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Settings/config persistence unit tests in `tests/test_settings_unit.py`
 - [x] Network protocol contract unit tests in `tests/test_network_protocol_contract_unit.py`
 - [x] State fingerprint determinism unit tests in `tests/test_state_fingerprint_unit.py`
+- [x] Network session manager unit tests in `tests/test_network_session_manager_unit.py`
+- [x] Network transport shim unit tests in `tests/test_network_transport_shim_unit.py`
 - [ ] Add move-validation unit tests (castling/en passant/check constraints)
 - [ ] Add deterministic serialization/deserialization parity tests for random legal games
 
