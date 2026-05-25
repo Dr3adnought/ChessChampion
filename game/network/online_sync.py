@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from game.board import Board
 from game.champion_chess import ChessGame
+from game.move_validator import MoveValidator
 from game.state_fingerprint import fingerprint_game_state
+from game.types import CastlingRights
 from game.types import Color, PieceType, Position
 
 
@@ -77,3 +80,75 @@ def apply_authoritative_clock(game: ChessGame, clock_payload: dict[str, Any]) ->
     else:
         game.timer.current_player = None
         game.timer.is_paused = True
+
+
+def apply_authoritative_state(game: ChessGame, state_payload: dict[str, Any]) -> bool:
+    """Apply authoritative board/state snapshot to local runtime."""
+    if not isinstance(state_payload, dict):
+        return False
+
+    board_payload = state_payload.get("board")
+    if not isinstance(board_payload, list):
+        return False
+
+    try:
+        board = Board.from_string_board(board_payload)
+    except Exception:
+        return False
+
+    board.castling_rights = _castling_from_string(str(state_payload.get("castling_rights", "-")))
+
+    en_passant = state_payload.get("en_passant_target")
+    if isinstance(en_passant, str) and en_passant:
+        try:
+            board.en_passant_target = Position.from_algebraic(en_passant)
+        except Exception:
+            board.en_passant_target = None
+    else:
+        board.en_passant_target = None
+
+    game.board = board
+    game.game_state.board = board
+    game.game_state.validator = MoveValidator(board)
+
+    turn = state_payload.get("current_turn")
+    if turn in ("white", "black"):
+        game.game_state.current_turn = Color(turn)
+
+    try:
+        game.game_state.half_move_clock = int(state_payload.get("half_move_clock", game.game_state.half_move_clock))
+        game.game_state.full_move_number = int(state_payload.get("full_move_number", game.game_state.full_move_number))
+    except (TypeError, ValueError):
+        return False
+
+    last_move = state_payload.get("last_move")
+    if isinstance(last_move, dict) and last_move.get("from") and last_move.get("to"):
+        try:
+            game.last_move = (
+                Position.from_algebraic(str(last_move["from"])),
+                Position.from_algebraic(str(last_move["to"])),
+            )
+        except Exception:
+            game.last_move = None
+    else:
+        game.last_move = None
+
+    game.game_state.selected_position = None
+    game.game_state._update_game_status()
+    return True
+
+
+def _castling_from_string(castling: str) -> CastlingRights:
+    if not castling or castling == "-":
+        return CastlingRights(0)
+
+    rights = 0
+    if "K" in castling:
+        rights |= CastlingRights.WHITE_KINGSIDE
+    if "Q" in castling:
+        rights |= CastlingRights.WHITE_QUEENSIDE
+    if "k" in castling:
+        rights |= CastlingRights.BLACK_KINGSIDE
+    if "q" in castling:
+        rights |= CastlingRights.BLACK_QUEENSIDE
+    return CastlingRights(rights)

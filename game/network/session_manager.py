@@ -143,6 +143,7 @@ class SessionManager:
             "initial_fen": "startpos",
             "halfmove": len(session.game.game_state.move_history),
             "position_hash": fingerprint_game_state(session.game),
+            "state": self._state_snapshot(session.game),
             "time_control": {
                 "minutes": int(session.game.timer.base_time // 60),
                 "increment": session.game.timer.increment,
@@ -181,6 +182,7 @@ class SessionManager:
                     "authoritative_halfmove": authoritative_halfmove,
                     "authoritative_position_hash": authoritative_hash,
                     "authoritative_fen": "not-implemented",
+                    "authoritative_state": self._state_snapshot(session.game),
                 },
             )
             return {"ok": True, "events": [event]}
@@ -196,6 +198,7 @@ class SessionManager:
                     "authoritative_halfmove": authoritative_halfmove,
                     "authoritative_position_hash": authoritative_hash,
                     "authoritative_fen": "not-implemented",
+                    "authoritative_state": self._state_snapshot(session.game),
                 },
             )
             return {"ok": True, "events": [event]}
@@ -212,6 +215,7 @@ class SessionManager:
                     "authoritative_halfmove": authoritative_halfmove,
                     "authoritative_position_hash": authoritative_hash,
                     "authoritative_fen": "not-implemented",
+                    "authoritative_state": self._state_snapshot(session.game),
                 },
             )
             return {"ok": True, "events": [event]}
@@ -250,6 +254,7 @@ class SessionManager:
             "position_fen": "not-implemented",
             "position_hash": fingerprint_game_state(session.game),
             "clock": self._clock_snapshot(session.game),
+            "state": self._state_snapshot(session.game),
             "last_event_id": "",
         }
         event = self._make_server_event(session, player_state.player_id, "state_resync", state_payload)
@@ -296,6 +301,7 @@ class SessionManager:
                     "position_fen": "not-implemented",
                     "position_hash": fingerprint_game_state(session.game),
                     "clock": self._clock_snapshot(session.game),
+                    "state": self._state_snapshot(session.game),
                 },
             },
         )
@@ -384,6 +390,24 @@ class SessionManager:
             "black_ms": int(game.timer.black_time * 1000),
             "active": active,
         }
+
+    def _state_snapshot(self, game: ChessGame) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {
+            "board": game.board.to_string_board(),
+            "current_turn": game.game_state.current_turn.value,
+            "castling_rights": str(game.board.castling_rights),
+            "en_passant_target": game.board.en_passant_target.to_algebraic() if game.board.en_passant_target else None,
+            "half_move_clock": game.game_state.half_move_clock,
+            "full_move_number": game.game_state.full_move_number,
+        }
+        if game.last_move:
+            snapshot["last_move"] = {
+                "from": game.last_move[0].to_algebraic(),
+                "to": game.last_move[1].to_algebraic(),
+            }
+        else:
+            snapshot["last_move"] = None
+        return snapshot
 
     def _generate_invite_code(self, length: int = 6) -> str:
         alphabet = string.ascii_uppercase + string.digits

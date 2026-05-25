@@ -620,6 +620,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Add transport-backed session hub/client adapter shim (message routing over protocol envelopes)
 - [x] Wire minimal Online Host/Join menu + main-loop handshake flow (Phase A bootstrap)
 - [x] Integrate authoritative move flow in online mode (`move_intent` send + `move_accepted` apply)
+- [x] Apply authoritative full-state snapshots on desync/resync events in online mode
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`

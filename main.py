@@ -14,6 +14,7 @@ from game.network import (
     SessionManagerHub,
     apply_authoritative_clock,
     apply_authoritative_move,
+    apply_authoritative_state,
     build_move_intent_payload,
 )
 from game.paths import ensure_user_data_layout
@@ -633,12 +634,14 @@ while game_active:
                     status_color = (120, 210, 255)
                     status_message_until = pygame.time.get_ticks() + 3000
                     online_game_started = True
+                    apply_authoritative_state(game, network_event.payload.get('state', {}))
                     apply_authoritative_clock(game, network_event.payload.get('server_clock', {}))
                 elif network_event.event_type == 'move_rejected':
                     status_message = f"Online reject: {network_event.payload.get('reason', 'unknown')}"
                     status_color = (255, 150, 120)
                     status_message_until = pygame.time.get_ticks() + 3000
                     online_pending_move = False
+                    apply_authoritative_state(game, network_event.payload.get('authoritative_state', {}))
                     if network_event.payload.get('reason') == 'state_desync':
                         online_adapter.send('state_resync_request', {})
                 elif network_event.event_type == 'move_accepted':
@@ -658,6 +661,7 @@ while game_active:
                     status_message = f"Online resync hash: {authoritative_hash[:18]}..."
                     status_color = (120, 210, 255)
                     status_message_until = pygame.time.get_ticks() + 2500
+                    apply_authoritative_state(game, network_event.payload.get('state', {}))
                     apply_authoritative_clock(game, network_event.payload.get('clock', {}))
 
         # Check for timeout

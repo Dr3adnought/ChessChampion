@@ -62,6 +62,8 @@ class SessionManagerUnitTests(unittest.TestCase):
         result = self._create_host_and_join()
         start_events = [e for e in result["join_events"] if e["event_type"] == "game_start"]
         self.assertEqual(len(start_events), 2)
+        self.assertIn("state", start_events[0]["payload"])
+        self.assertIn("board", start_events[0]["payload"]["state"])
 
     def test_move_intent_accepted_for_legal_move(self):
         setup = self._create_host_and_join()
@@ -110,6 +112,23 @@ class SessionManagerUnitTests(unittest.TestCase):
         self.assertTrue(move_result["ok"])
         self.assertEqual(move_result["events"][0]["event_type"], "move_rejected")
         self.assertEqual(move_result["events"][0]["payload"]["reason"], "state_desync")
+        self.assertIn("authoritative_state", move_result["events"][0]["payload"])
+
+    def test_state_resync_includes_authoritative_state_snapshot(self):
+        setup = self._create_host_and_join()
+
+        sync = self.manager.process_message(
+            self._message(
+                event_type="state_resync_request",
+                game_id=setup["game_id"],
+                player_id=setup["host_player_id"],
+                payload={},
+            )
+        )
+        self.assertTrue(sync["ok"])
+        payload = sync["events"][0]["payload"]
+        self.assertIn("state", payload)
+        self.assertIn("board", payload["state"])
 
     def test_reconnect_rotates_resume_token(self):
         setup = self._create_host_and_join()

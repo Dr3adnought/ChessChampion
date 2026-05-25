@@ -4,6 +4,7 @@ from game.champion_chess import ChessGame
 from game.network.online_sync import (
     apply_authoritative_clock,
     apply_authoritative_move,
+    apply_authoritative_state,
     build_move_intent_payload,
 )
 from game.types import PieceType, Position
@@ -55,6 +56,26 @@ class OnlineSyncUnitTests(unittest.TestCase):
         self.assertAlmostEqual(game.timer.black_time, 300.0, places=3)
         self.assertEqual(game.timer.current_player.value, "black")
         self.assertFalse(game.timer.is_paused)
+
+    def test_apply_authoritative_state_replaces_board_and_turn(self):
+        game = ChessGame()
+        state_payload = {
+            "board": [[None for _ in range(8)] for _ in range(8)],
+            "current_turn": "black",
+            "castling_rights": "-",
+            "en_passant_target": None,
+            "half_move_clock": 7,
+            "full_move_number": 14,
+            "last_move": {"from": "a2", "to": "a4"},
+        }
+
+        applied = apply_authoritative_state(game, state_payload)
+
+        self.assertTrue(applied)
+        self.assertEqual(game.turn, "black")
+        self.assertEqual(game.game_state.half_move_clock, 7)
+        self.assertEqual(game.game_state.full_move_number, 14)
+        self.assertIsNotNone(game.last_move)
 
 
 if __name__ == "__main__":
