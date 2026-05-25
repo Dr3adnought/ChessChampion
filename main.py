@@ -9,11 +9,17 @@ from app_metadata import APP_NAME, APP_VERSION
 from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
-from game.network import SessionManagerClientAdapter, SessionManagerHub
+from game.network import (
+    SessionManagerClientAdapter,
+    SessionManagerHub,
+    apply_authoritative_clock,
+    apply_authoritative_move,
+    build_move_intent_payload,
+)
 from game.paths import ensure_user_data_layout
 from game.promotion_dialog import PromotionDialog
 from game.save_load.service import load_game, list_saves, save_game
-from game.types import GameStatus, Position
+from game.types import Color, GameStatus, PieceType, Position
 from game.animation import AnimationManager
 from constants import *
 
@@ -129,7 +135,7 @@ def bootstrap_online_client(
     invite_code: str,
     time_minutes: int,
     time_increment: int,
-) -> tuple[SessionManagerClientAdapter | None, str, int, int]:
+) -> tuple[SessionManagerClientAdapter | None, str, int, int, str | None, bool]:
     """Initialize in-process online adapter flow and return status text."""
     adapter = SessionManagerClientAdapter(ONLINE_HUB)
     adapter.connect()
@@ -146,15 +152,16 @@ def bootstrap_online_client(
         host_created = next((e for e in events if e.event_type == 'host_created'), None)
         if not host_created:
             adapter.disconnect()
-            return None, 'Online host setup failed', time_minutes, time_increment
+            return None, 'Online host setup failed', time_minutes, time_increment, None, False
 
         invite = host_created.payload.get('invite_code', '')
-        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment
+        side = host_created.payload.get('host_side', 'white')
+        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment, side, False
 
     join_code = invite_code.strip().upper()
     if not join_code:
         adapter.disconnect()
-        return None, 'Join failed: invite code is required', time_minutes, time_increment
+        return None, 'Join failed: invite code is required', time_minutes, time_increment, None, False
 
     adapter.send('join_request', {'invite_code': join_code})
     events = adapter.poll()
@@ -163,7 +170,7 @@ def bootstrap_online_client(
 
     if not join_accepted:
         adapter.disconnect()
-        return None, f'Join failed for code {join_code}', time_minutes, time_increment
+        return None, f'Join failed for code {join_code}', time_minutes, time_increment, None, False
 
     resolved_minutes = time_minutes
     resolved_increment = time_increment
@@ -175,7 +182,9 @@ def bootstrap_online_client(
         except (TypeError, ValueError):
             pass
 
-    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment
+    side = join_accepted.payload.get('side', 'black')
+    started = game_start is not None
+    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment, side, started
 
 # Load piece images once
 PIECES = load_pieces()
@@ -189,8 +198,11 @@ while game_active:
     game_mode, difficulty, ai_color, ai_depth, time_minutes, time_increment, online_role, online_invite = menu.run()
 
     online_adapter = None
+    online_side = None
+    online_game_started = False
+    online_pending_move = False
     if game_mode == 'online':
-        online_adapter, online_status, time_minutes, time_increment = bootstrap_online_client(
+        online_adapter, online_status, time_minutes, time_increment, online_side, online_game_started = bootstrap_online_client(
             online_role,
             online_invite,
             time_minutes,
@@ -445,46 +457,128 @@ while game_active:
                     # Store the previous board state for comparison
                     old_turn = game.turn
                     
-                    # Pass AI color only in PvAI mode to prevent interaction during AI turn
-                    promotion_needed = game.handle_click(clicked_row, clicked_col, ai_player_color=AI_PLAYER_COLOR)
-                    
-                    # Check if promotion dialog is needed
-                    if promotion_needed:
-                        from_pos, to_pos, pawn_color = promotion_needed
-                        
-                        # Show promotion dialog
-                        promotion_dialog = PromotionDialog(SCREEN, PIECES, pawn_color)
-                        selected_piece = promotion_dialog.run()
-                        
-                        # Execute the promotion
-                        if game.execute_promotion(from_pos, to_pos, selected_piece):
-                            # Trigger animation
-                            piece = game.board.get_piece(to_pos)
-                            if piece:
-                                piece_key = piece.to_string_notation()
-                                piece_image = PIECES.get(piece_key)
-                                if piece_image:
-                                    animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
-                            
+                    if game_mode == 'online' and online_adapter is not None:
+                        if not online_game_started:
+                            status_message = 'Online waiting for opponent to start'
+                            status_color = (255, 200, 120)
+                            status_message_until = pygame.time.get_ticks() + 2500
+                            continue
+
+                        if online_side not in ('white', 'black'):
+                            status_message = 'Online side unresolved'
+                            status_color = (255, 120, 120)
+                            status_message_until = pygame.time.get_ticks() + 2500
+                            continue
+
+                        if online_pending_move:
+                            status_message = 'Waiting for server move confirmation'
+                            status_color = (200, 200, 200)
+                            status_message_until = pygame.time.get_ticks() + 1800
+                            continue
+
+                        if game.game_state.current_turn.value != online_side:
+                            status_message = "Not your turn"
+                            status_color = (255, 200, 120)
+                            status_message_until = pygame.time.get_ticks() + 1800
+                            continue
+
+                        clicked_position = Position(clicked_row, clicked_col)
+                        selected = game.game_state.selected_position
+                        piece_at_click = game.board.get_piece(clicked_position)
+
+                        if selected:
+                            legal_moves = game.game_state.get_legal_moves_for_position(selected)
+                            promotion_moves = [
+                                m for m in legal_moves if m.to_pos == clicked_position and m.move_type.name == 'PROMOTION'
+                            ]
+
+                            promotion_piece = None
+                            if promotion_moves:
+                                piece = game.board.get_piece(selected)
+                                if piece:
+                                    promotion_dialog = PromotionDialog(SCREEN, PIECES, piece.color)
+                                    promotion_piece = promotion_dialog.run()
+
+                            target_move = None
+                            for move in legal_moves:
+                                if move.to_pos != clicked_position:
+                                    continue
+                                if promotion_piece is None and move.promotion_piece is None:
+                                    target_move = move
+                                    break
+                                if promotion_piece is not None and move.promotion_piece == promotion_piece:
+                                    target_move = move
+                                    break
+
+                            if target_move:
+                                payload = build_move_intent_payload(
+                                    game,
+                                    from_pos=target_move.from_pos,
+                                    to_pos=target_move.to_pos,
+                                    promotion_piece=target_move.promotion_piece,
+                                )
+                                online_adapter.send('move_intent', payload)
+                                online_pending_move = True
+                                game.game_state.selected_position = None
+                                status_message = 'Online move sent'
+                                status_color = (120, 210, 255)
+                                status_message_until = pygame.time.get_ticks() + 1600
+                            else:
+                                if piece_at_click and piece_at_click.color.value == online_side:
+                                    game.game_state.selected_position = clicked_position
+                                else:
+                                    game.game_state.selected_position = None
+                        else:
+                            if (
+                                piece_at_click
+                                and piece_at_click.color.value == online_side
+                                and piece_at_click.color.value == game.game_state.current_turn.value
+                            ):
+                                game.game_state.selected_position = clicked_position
+                            else:
+                                game.game_state.selected_position = None
+
+                    else:
+                        # Pass AI color only in PvAI mode to prevent interaction during AI turn
+                        promotion_needed = game.handle_click(clicked_row, clicked_col, ai_player_color=AI_PLAYER_COLOR)
+
+                        # Check if promotion dialog is needed
+                        if promotion_needed:
+                            from_pos, to_pos, pawn_color = promotion_needed
+
+                            # Show promotion dialog
+                            promotion_dialog = PromotionDialog(SCREEN, PIECES, pawn_color)
+                            selected_piece = promotion_dialog.run()
+
+                            # Execute the promotion
+                            if game.execute_promotion(from_pos, to_pos, selected_piece):
+                                # Trigger animation
+                                piece = game.board.get_piece(to_pos)
+                                if piece:
+                                    piece_key = piece.to_string_notation()
+                                    piece_image = PIECES.get(piece_key)
+                                    if piece_image:
+                                        animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+
+                                # Mark that AI should move after animation completes (only in PvAI mode)
+                                if game_mode == 'pvai':
+                                    ai_move_pending = True
+
+                        # Check if a move was made (turn changed)
+                        elif old_turn != game.turn:
+                            # Player made a move, trigger animation
+                            if game.last_move:
+                                from_pos, to_pos = game.last_move
+                                piece = game.board.get_piece(to_pos)
+                                if piece:
+                                    piece_key = piece.to_string_notation()
+                                    piece_image = PIECES.get(piece_key)
+                                    if piece_image:
+                                        animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+
                             # Mark that AI should move after animation completes (only in PvAI mode)
                             if game_mode == 'pvai':
                                 ai_move_pending = True
-                    
-                    # Check if a move was made (turn changed)
-                    elif old_turn != game.turn:
-                        # Player made a move, trigger animation
-                        if game.last_move:
-                            from_pos, to_pos = game.last_move
-                            piece = game.board.get_piece(to_pos)
-                            if piece:
-                                piece_key = piece.to_string_notation()
-                                piece_image = PIECES.get(piece_key)
-                                if piece_image:
-                                    animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
-                        
-                        # Mark that AI should move after animation completes (only in PvAI mode)
-                        if game_mode == 'pvai':
-                            ai_move_pending = True
 
         # Handle AI move after player animation completes and delay (only in PvAI mode)
         if game_mode == 'pvai' and ai_move_pending and not animation_manager.is_busy():
@@ -538,10 +632,33 @@ while game_active:
                     status_message = 'Online game_start event received'
                     status_color = (120, 210, 255)
                     status_message_until = pygame.time.get_ticks() + 3000
+                    online_game_started = True
+                    apply_authoritative_clock(game, network_event.payload.get('server_clock', {}))
                 elif network_event.event_type == 'move_rejected':
                     status_message = f"Online reject: {network_event.payload.get('reason', 'unknown')}"
                     status_color = (255, 150, 120)
                     status_message_until = pygame.time.get_ticks() + 3000
+                    online_pending_move = False
+                    if network_event.payload.get('reason') == 'state_desync':
+                        online_adapter.send('state_resync_request', {})
+                elif network_event.event_type == 'move_accepted':
+                    applied = apply_authoritative_move(game, network_event.payload.get('move', {}))
+                    apply_authoritative_clock(game, network_event.payload.get('clock', {}))
+                    if applied and game.last_move:
+                        from_pos, to_pos = game.last_move
+                        piece = game.board.get_piece(to_pos)
+                        if piece:
+                            piece_key = piece.to_string_notation()
+                            piece_image = PIECES.get(piece_key)
+                            if piece_image:
+                                animation_manager.start_animation(from_pos, to_pos, piece_image, SQUARE_SIZE, duration_ms=400)
+                    online_pending_move = False
+                elif network_event.event_type == 'state_resync':
+                    authoritative_hash = network_event.payload.get('position_hash', '')
+                    status_message = f"Online resync hash: {authoritative_hash[:18]}..."
+                    status_color = (120, 210, 255)
+                    status_message_until = pygame.time.get_ticks() + 2500
+                    apply_authoritative_clock(game, network_event.payload.get('clock', {}))
 
         # Check for timeout
         if game.timer.is_timed and not game.game_over:

@@ -619,6 +619,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Implement Phase A in-process authoritative session manager (host/join/move/resync/reconnect)
 - [x] Add transport-backed session hub/client adapter shim (message routing over protocol envelopes)
 - [x] Wire minimal Online Host/Join menu + main-loop handshake flow (Phase A bootstrap)
+- [x] Integrate authoritative move flow in online mode (`move_intent` send + `move_accepted` apply)
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`
@@ -631,6 +632,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] State fingerprint determinism unit tests in `tests/test_state_fingerprint_unit.py`
 - [x] Network session manager unit tests in `tests/test_network_session_manager_unit.py`
 - [x] Network transport shim unit tests in `tests/test_network_transport_shim_unit.py`
+- [x] Online sync helper unit tests in `tests/test_online_sync_unit.py`
 - [ ] Add move-validation unit tests (castling/en passant/check constraints)
 - [ ] Add deterministic serialization/deserialization parity tests for random legal games
 
