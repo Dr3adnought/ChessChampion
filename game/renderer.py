@@ -7,6 +7,7 @@ from typing import Dict, Optional, List
 from game.types import Color, Position, GameStatus, PieceType
 from game.board import Board
 from game.game_state import GameState
+from game.timer import TimeControl
 
 
 class Renderer:
@@ -43,6 +44,10 @@ class Renderer:
         # Undo/Redo button rectangles
         self.undo_button_rect = None
         self.redo_button_rect = None
+
+        # Save/Load button rectangles
+        self.save_button_rect = None
+        self.load_button_rect = None
     
     def draw_board(self, game_state: GameState, legal_moves: Optional[list] = None, 
                    last_move: Optional[tuple] = None, animating_position: Optional[Position] = None):
@@ -78,6 +83,66 @@ class Renderer:
         
         # Draw coordinates
         self._draw_coordinates()
+    
+    def draw_timers(self, timer: TimeControl, sidebar_x: int, sidebar_width: int, current_turn: Color):
+        """
+        Draw chess timers for both players in the sidebar.
+        
+        Args:
+            timer: TimeControl object with time information
+            sidebar_x: X position where sidebar starts
+            sidebar_width: Width of the sidebar
+            current_turn: Current player's turn for highlighting
+        """
+        if not timer.is_timed:
+            return
+        
+        timer_font = pygame.font.Font(None, 48)
+        label_font = pygame.font.Font(None, 24)
+        
+        # Calculate positions (at top of sidebar, above captured pieces section)
+        black_timer_y = 180
+        white_timer_y = black_timer_y + 80
+        
+        # Draw Black's timer
+        black_time_str = timer.format_time(Color.BLACK)
+        black_color = timer.get_display_color(Color.BLACK)
+        black_bg = (40, 40, 40) if current_turn == Color.BLACK else (30, 30, 30)
+        
+        # Background rectangle for black timer
+        black_bg_rect = pygame.Rect(sidebar_x + 10, black_timer_y - 10, sidebar_width - 20, 60)
+        pygame.draw.rect(self.screen, black_bg, black_bg_rect, border_radius=8)
+        if current_turn == Color.BLACK:
+            pygame.draw.rect(self.screen, (100, 100, 100), black_bg_rect, width=2, border_radius=8)
+        
+        # Black label
+        black_label = label_font.render("Black", True, (200, 200, 200))
+        self.screen.blit(black_label, (sidebar_x + 20, black_timer_y))
+        
+        # Black time
+        black_time_surface = timer_font.render(black_time_str, True, black_color)
+        black_time_rect = black_time_surface.get_rect(centerx=sidebar_x + sidebar_width // 2, y=black_timer_y + 15)
+        self.screen.blit(black_time_surface, black_time_rect)
+        
+        # Draw White's timer
+        white_time_str = timer.format_time(Color.WHITE)
+        white_color = timer.get_display_color(Color.WHITE)
+        white_bg = (40, 40, 40) if current_turn == Color.WHITE else (30, 30, 30)
+        
+        # Background rectangle for white timer
+        white_bg_rect = pygame.Rect(sidebar_x + 10, white_timer_y - 10, sidebar_width - 20, 60)
+        pygame.draw.rect(self.screen, white_bg, white_bg_rect, border_radius=8)
+        if current_turn == Color.WHITE:
+            pygame.draw.rect(self.screen, (100, 100, 100), white_bg_rect, width=2, border_radius=8)
+        
+        # White label
+        white_label = label_font.render("White", True, (200, 200, 200))
+        self.screen.blit(white_label, (sidebar_x + 20, white_timer_y))
+        
+        # White time
+        white_time_surface = timer_font.render(white_time_str, True, white_color)
+        white_time_rect = white_time_surface.get_rect(centerx=sidebar_x + sidebar_width // 2, y=white_timer_y + 15)
+        self.screen.blit(white_time_surface, white_time_rect)
     
     def _draw_squares(self, game_state: GameState):
         """Draw the checkered board pattern."""
@@ -401,6 +466,57 @@ class Renderer:
         redo_text = self.small_font.render("Redo", True, text_color)
         redo_text_rect = redo_text.get_rect(center=self.redo_button_rect.center)
         self.screen.blit(redo_text, redo_text_rect)
+
+    def draw_save_load_buttons(self, can_save: bool, can_load: bool, sidebar_x: int, sidebar_width: int, board_height: int):
+        """
+        Draw save and load buttons in the sidebar.
+
+        Args:
+            can_save: Whether save button should be active
+            can_load: Whether load button should be active
+            sidebar_x: X position where sidebar starts
+            sidebar_width: Width of the sidebar
+            board_height: Height of the board for positioning
+        """
+        button_width = (sidebar_width - 30) // 2
+        button_height = 40
+        y_pos = board_height - 110
+
+        # Save button
+        save_x = sidebar_x + 10
+        self.save_button_rect = pygame.Rect(save_x, y_pos, button_width, button_height)
+
+        if can_save:
+            save_color = (46, 139, 87)  # Green when active
+            save_text_color = (255, 255, 255)
+        else:
+            save_color = (100, 100, 100)
+            save_text_color = (150, 150, 150)
+
+        pygame.draw.rect(self.screen, save_color, self.save_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.save_button_rect, width=2, border_radius=5)
+
+        save_text = self.small_font.render("Save", True, save_text_color)
+        save_text_rect = save_text.get_rect(center=self.save_button_rect.center)
+        self.screen.blit(save_text, save_text_rect)
+
+        # Load button
+        load_x = sidebar_x + button_width + 20
+        self.load_button_rect = pygame.Rect(load_x, y_pos, button_width, button_height)
+
+        if can_load:
+            load_color = (160, 82, 45)  # Brown when active
+            load_text_color = (255, 255, 255)
+        else:
+            load_color = (100, 100, 100)
+            load_text_color = (150, 150, 150)
+
+        pygame.draw.rect(self.screen, load_color, self.load_button_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.load_button_rect, width=2, border_radius=5)
+
+        load_text = self.small_font.render("Load", True, load_text_color)
+        load_text_rect = load_text.get_rect(center=self.load_button_rect.center)
+        self.screen.blit(load_text, load_text_rect)
     
     def is_undo_button_clicked(self, pos: tuple) -> bool:
         """Check if undo button was clicked."""
@@ -412,4 +528,16 @@ class Renderer:
         """Check if redo button was clicked."""
         if self.redo_button_rect:
             return self.redo_button_rect.collidepoint(pos)
+        return False
+
+    def is_save_button_clicked(self, pos: tuple) -> bool:
+        """Check if save button was clicked."""
+        if self.save_button_rect:
+            return self.save_button_rect.collidepoint(pos)
+        return False
+
+    def is_load_button_clicked(self, pos: tuple) -> bool:
+        """Check if load button was clicked."""
+        if self.load_button_rect:
+            return self.load_button_rect.collidepoint(pos)
         return False

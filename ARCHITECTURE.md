@@ -19,7 +19,14 @@ game/
 └── champion_chess.py   # Main game controller (facade)
 
 ai/
-└── ai_player_refactored.py  # AI with minimax algorithm
+└── ai_player.py          # AI with minimax algorithm + alpha-beta pruning
+
+save_load/
+├── schema.py            # Save payload schema and validation
+├── serializer.py        # Runtime <-> payload conversion
+├── store.py             # Indexed file persistence in saved_games/
+├── service.py           # High-level save/load facade
+└── pgn.py               # PGN export and sidecar writing
 ```
 
 ### **2. Key Improvements**
@@ -116,14 +123,15 @@ renderer.set_colors(
 
 ### Want to save/load games?
 ```python
-# GameState has move_history - can export to PGN format
-def export_pgn(self):
-    pgn = ""
-    for i, move in enumerate(self.move_history):
-        if i % 2 == 0:
-            pgn += f"{i//2 + 1}. "
-        pgn += f"{self.get_move_notation(move)} "
-    return pgn
+from game.save_load.service import save_game, load_game
+
+# Save current game state + PGN sidecar
+result = save_game(game, source="manual", session_meta=session_meta)
+
+# Load by file name from saved_games index
+loaded = load_game("my-save.json")
+if loaded["success"]:
+    game = loaded["game"]
 ```
 
 ### Want to add unit tests?
@@ -152,15 +160,14 @@ def test_pawn_movement():
 With this architecture in place, you can now easily implement:
 
 1. **Move history panel** - Display moves in algebraic notation
-2. **Chess clock** - Add time controls
+2. **Sound effects** - Audio feedback for moves/UI
 3. **Opening book** - AI plays strong opening moves
 4. **Endgame tablebases** - Perfect endgame play
 5. **Transposition table** - Cache evaluated positions
 6. **Move animations** - Smooth piece movement
-7. **Sound effects** - Audio feedback for moves
-8. **Network play** - Multiplayer over network
-9. **Game analysis** - Evaluate positions, find best moves
-10. **Different variants** - Chess960, Three-check, etc.
+7. **Network play** - Multiplayer over network
+8. **Game analysis** - Evaluate positions, find best moves
+9. **Different variants** - Chess960, Three-check, etc.
 
 ## File Structure
 
@@ -179,8 +186,16 @@ ChessChampion/
 │   └── champion_chess.py     # Game controller
 ├── ai/
 │   ├── __init__.py
-│   ├── ai_player.py          # Original AI (deprecated)
-│   └── ai_player_refactored.py  # New AI
+│   └── ai_player.py          # AI player
+├── game/save_load/
+│   ├── __init__.py
+│   ├── schema.py
+│   ├── serializer.py
+│   ├── store.py
+│   ├── service.py
+│   └── pgn.py
+├── saved_games/
+│   └── index.json            # Save list cache
 └── assets/
     └── *.png                 # Piece images
 ```
@@ -192,6 +207,7 @@ The refactored version maintains **backwards compatibility** where possible:
 - `game.game_over` still works as boolean
 - `game.draw()` has the same signature
 - AI interface unchanged from main.py perspective
+- Save/load facade shields UI from serializer/store details
 
 This allows for incremental adoption of new features while maintaining stability.
 

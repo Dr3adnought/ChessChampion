@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# Runtime save artifacts
+saved_games/*.json
+saved_games/*.pgn

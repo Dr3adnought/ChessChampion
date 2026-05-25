@@ -9,6 +9,7 @@ from game.types import Color, Position, Move, GameStatus, MoveType, PieceType
 from game.board import Board
 from game.game_state import GameState
 from game.renderer import Renderer
+from game.timer import TimeControl
 
 
 class ChessGame:
@@ -17,8 +18,14 @@ class ChessGame:
     Acts as the facade for the chess game system.
     """
     
-    def __init__(self):
-        """Initialize the chess game with all components."""
+    def __init__(self, time_minutes: int = 0, time_increment: int = 0):
+        """
+        Initialize the chess game with all components.
+        
+        Args:
+            time_minutes: Starting time in minutes (0 for untimed)
+            time_increment: Increment in seconds added after each move
+        """
         # Create board and set up pieces
         self.board = Board()
         self.board.setup_initial_position()
@@ -31,6 +38,9 @@ class ChessGame:
         
         # Track last move for highlighting
         self.last_move: Optional[tuple[Position, Position]] = None
+        
+        # Timer for time controls
+        self.timer = TimeControl(time_minutes, time_increment)
     
     def set_renderer(self, renderer: Renderer):
         """Set the renderer for drawing the game."""
@@ -47,7 +57,7 @@ class ChessGame:
         return self.game_state.is_game_over()
 
     
-    def handle_click(self, clicked_row: int, clicked_col: int, ai_player_color: Optional[str] = None):
+    def handle_click(self, clicked_row: int, clicked_col: int, ai_player_color: Optional[str] = None) -> Optional[tuple]:
         """
         Handle mouse click on the board.
         
@@ -55,14 +65,17 @@ class ChessGame:
             clicked_row: Row that was clicked (0-7)
             clicked_col: Column that was clicked (0-7)
             ai_player_color: If set, prevents interaction when it's AI's turn
+        
+        Returns:
+            Tuple of (from_pos, to_pos, color) if promotion is needed, None otherwise
         """
         if self.game_state.is_game_over():
             print("Game is over!")
-            return
+            return None
         
         # Prevent interaction during AI turn
         if ai_player_color and self.turn == ai_player_color:
-            return
+            return None
         
         clicked_position = Position(clicked_row, clicked_col)
         piece_at_click = self.board.get_piece(clicked_position)
@@ -71,28 +84,40 @@ class ChessGame:
         if self.game_state.selected_position:
             # Check if move is legal
             legal_moves = self.game_state.get_legal_moves_for_position(self.game_state.selected_position)
-            target_move = None
             
+            # Check if this is a promotion move
+            promotion_moves = [m for m in legal_moves if m.to_pos == clicked_position and m.move_type == MoveType.PROMOTION]
+            
+            if promotion_moves:
+                # Need to show promotion dialog
+                piece = self.board.get_piece(self.game_state.selected_position)
+                if piece:
+                    return (self.game_state.selected_position, clicked_position, piece.color)
+            
+            # Find matching non-promotion move
+            target_move = None
             for move in legal_moves:
-                if move.to_pos == clicked_position:
-                    # Handle pawn promotion - default to queen for now
-                    if move.move_type == MoveType.PROMOTION:
-                        # If there are multiple promotion options, pick queen
-                        if move.promotion_piece == PieceType.QUEEN:
-                            target_move = move
-                            break
-                    else:
-                        target_move = move
-                        break
+                if move.to_pos == clicked_position and move.move_type != MoveType.PROMOTION:
+                    target_move = move
+                    break
             
             if target_move:
                 # Get piece type before move for notation
                 piece = self.board.get_piece(target_move.from_pos)
                 piece_type = piece.piece_type if piece else None
+                current_color = piece.color if piece else None
                 
                 # Execute the move
                 if self.game_state.make_move(target_move):
                     self.last_move = (target_move.from_pos, target_move.to_pos)
+                    
+                    # End timer for player who just moved and apply increment
+                    if current_color:
+                        self.timer.end_turn(current_color, apply_increment=True)
+                    
+                    # Start timer for next player
+                    self.timer.start_turn(self.game_state.current_turn)
+                    
                     if piece_type:
                         print(f"Move: {self.game_state.get_move_notation(target_move, piece_type)}")
                     
@@ -122,6 +147,64 @@ class ChessGame:
                 self.game_state.selected_position = clicked_position
             else:
                 print(f"It's {self.turn}'s turn. Cannot select opponent's piece or empty square.")
+        
+        return None
+    
+    def execute_promotion(self, from_pos: Position, to_pos: Position, promotion_piece: PieceType) -> bool:
+        """
+        Execute a pawn promotion move with the selected piece.
+        
+        Args:
+            from_pos: Starting position of the pawn
+            to_pos: Destination position
+            promotion_piece: Piece type to promote to
+        
+        Returns:
+            True if promotion was successful, False otherwise
+        """
+        # Find the matching promotion move
+        legal_moves = self.game_state.get_legal_moves_for_position(from_pos)
+        target_move = None
+        
+        for move in legal_moves:
+            if move.to_pos == to_pos and move.move_type == MoveType.PROMOTION and move.promotion_piece == promotion_piece:
+                target_move = move
+                break
+        
+        if target_move:
+            piece = self.board.get_piece(target_move.from_pos)
+            piece_type = piece.piece_type if piece else None
+            current_color = piece.color if piece else None
+            
+            # Execute the move
+            if self.game_state.make_move(target_move):
+                self.last_move = (target_move.from_pos, target_move.to_pos)
+                
+                # End timer for player who just moved and apply increment
+                if current_color:
+                    self.timer.end_turn(current_color, apply_increment=True)
+                
+                # Start timer for next player
+                self.timer.start_turn(self.game_state.current_turn)
+                
+                if piece_type:
+                    print(f"Move: {self.game_state.get_move_notation(target_move, piece_type)}")
+                
+                # Check game status
+                if self.game_state.game_status == GameStatus.CHECKMATE:
+                    winner = self.game_state.get_winner()
+                    print(f"\n!!! CHECKMATE !!! {winner.value.upper()} WINS!")
+                elif self.game_state.game_status == GameStatus.STALEMATE:
+                    print("\n!!! STALEMATE !!! It's a DRAW!")
+                elif self.game_state.game_status == GameStatus.CHECK:
+                    print(f"!!! {self.game_state.current_turn.value.upper()} KING IS IN CHECK !!!")
+                elif self.game_state.game_status == GameStatus.DRAW:
+                    print("\n!!! DRAW by 50-move rule!")
+                
+                self.game_state.selected_position = None
+                return True
+        
+        return False
     
     def draw(self, screen: pygame.Surface, square_size: int, light_color: tuple, dark_color: tuple,
              highlight_color: tuple, pieces_images: dict, animating_position: Optional[Position] = None):

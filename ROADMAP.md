@@ -36,6 +36,11 @@ Create a feature-rich, polished chess game that serves as both an engaging game 
 - [x] Player vs Player mode (local multiplayer)
 - [x] Dynamic menu that adapts to game mode
 
+### Phase 5: Advanced Controls
+- [x] Move undo/redo system with UI buttons and keyboard shortcuts (Ctrl+Z/Y)
+- [x] Pawn promotion dialog with interactive piece selection (mouse + keyboard)
+- [x] Chess clock with selectable time controls and increment support
+
 ---
 
 ## 🚀 Planned Features (Prioritized)
@@ -44,50 +49,50 @@ Create a feature-rich, polished chess game that serves as both an engaging game 
 Priority: Implement these ASAP for maximum user value
 
 #### 1. Move Undo/Redo System ⭐⭐⭐
-**Complexity:** Low (15-20 min)  
+**Complexity:** Low 
 **Impact:** High  
-**Status:** Ready to implement
+**Status:** ✅ **COMPLETED**
 
 **Features:**
-- Undo button in UI (or keyboard shortcut: Ctrl+Z)
-- Redo button (Ctrl+Y)
-- Navigate through move history
-- Works for both PvP and PvAI modes
-- Visual indication of current position in history
+- ✅ Undo button in UI (or keyboard shortcut: Ctrl+Z)
+- ✅ Redo button (Ctrl+Y)
+- ✅ Navigate through move history
+- ✅ Works for both PvP and PvAI modes
+- ✅ Visual indication of current position in history
 
 **Implementation Notes:**
-- Move history already exists in `GameState.move_history`
-- Need to store full board state for each move (or implement reverse moves)
-- Disable undo during AI thinking/animation
-- Clear redo stack when new move is made
+- Implemented full undo/redo system with UI buttons
+- Handles all special moves (castling, en passant, promotion, captures)
+- Disabled during AI thinking/animation
+- Redo stack clears when new move is made
 
 **Dependencies:** None
 
 ---
 
 #### 2. Pawn Promotion Dialog ⭐⭐⭐
-**Complexity:** Low (20-30 min)  
+**Complexity:** Low  
 **Impact:** High  
-**Status:** Ready to implement
+**Status:** ✅ **COMPLETED**
 
 **Features:**
-- Modal dialog when pawn reaches last rank
-- Visual selection of Queen, Rook, Bishop, or Knight
-- Works during animations
-- Default to Queen with timeout option
+- ✅ Modal dialog when pawn reaches last rank
+- ✅ Visual selection of Queen, Rook, Bishop, or Knight
+- ✅ Keyboard shortcuts (Q/R/B/N/ESC)
+- ✅ Works with animations
 
 **Implementation Notes:**
-- Currently auto-promotes to Queen
-- Pause game state when dialog appears
-- Show piece images for selection
-- Handle both player and AI promotions
+- Created PromotionDialog class with visual piece selection
+- Game pauses when dialog appears
+- Shows piece images for selection with hover effects
+- Handles both PvP and PvAI modes
 
 **Dependencies:** None
 
 ---
 
 #### 3. Sound Effects ⭐⭐
-**Complexity:** Low (30-40 min)  
+**Complexity:** Low 
 **Impact:** Medium-High  
 **Status:** Ready to implement
 
@@ -116,9 +121,9 @@ Priority: Implement these ASAP for maximum user value
 Priority: Implement after Tier 1 for complete chess experience
 
 #### 4. Save/Load Game System ⭐⭐⭐
-**Complexity:** Medium (1-2 hours)  
+**Complexity:** Medium 
 **Impact:** High  
-**Status:** Planned
+**Status:** ✅ **COMPLETED**
 
 **Features:**
 - Save game to PGN (Portable Game Notation) format
@@ -141,17 +146,19 @@ Priority: Implement after Tier 1 for complete chess experience
 ```
 
 **Implementation Notes:**
-- Create `game/pgn_handler.py` module
-- Store: moves, player names, difficulty, timestamps
-- Save to `saved_games/` directory
-- Add "Save Game" and "Load Game" to menu
+- Implemented `game/save_load/` package (`schema.py`, `serializer.py`, `store.py`, `service.py`, `pgn.py`)
+- Stores: moves, players/session metadata, clock state, timestamps, captured pieces, castling/en passant state
+- Saves to `saved_games/` with index cache (`saved_games/index.json`)
+- Exposes in-game Save/Load via sidebar buttons and keyboard shortcuts (`Ctrl+S`, `Ctrl+L`)
+- Writes PGN sidecar files for each JSON save
+- Includes rolling autosave slot (`autosave.json`) on quit/new-game/end-game transitions
 
 **Dependencies:** None
 
 ---
 
 #### 5. Move Timer (Per-Move Countdown) ⭐⭐
-**Complexity:** Medium (45-60 min)  
+**Complexity:** Medium  
 **Impact:** Medium  
 **Status:** Planned
 
@@ -174,9 +181,9 @@ Priority: Implement after Tier 1 for complete chess experience
 ---
 
 #### 6. Game Timer (Chess Clock) ⭐⭐
-**Complexity:** Medium (1 hour)  
+**Complexity:** Medium 
 **Impact:** Medium  
-**Status:** Planned
+**Status:** ✅ **COMPLETED**
 
 **Features:**
 - Total game time for each player
@@ -191,17 +198,17 @@ Priority: Implement after Tier 1 for complete chess experience
 - Flag fall (time runs out) detection
 
 **Implementation Notes:**
-- Create `game/chess_clock.py`
-- Integrate with UI sidebar
-- Pause during animations
-- Save clock state with game
+- Implemented in `game/timer.py` with per-player clocks and increment support
+- Integrated into menu flow with preset time controls (including untimed)
+- Clock display is rendered in the sidebar with active-player highlighting
+- Timer pauses during animations and enforces timeout loss
 
 **Dependencies:** None
 
 ---
 
 #### 7. Game Review Mode ⭐⭐
-**Complexity:** Medium (1.5-2 hours)  
+**Complexity:** Medium 
 **Impact:** High  
 **Status:** Planned
 
@@ -234,7 +241,7 @@ Priority: Implement after Tier 1 for complete chess experience
 Priority: Polish and advanced functionality
 
 #### 8. Learning/Tutorial Mode ⭐⭐⭐
-**Complexity:** High (4-6 hours)  
+**Complexity:** High 
 **Impact:** High for beginners  
 **Status:** Planned
 
@@ -277,7 +284,7 @@ tutorials/
 ---
 
 #### 9. User Profiles & Statistics ⭐⭐
-**Complexity:** High (3-4 hours)  
+**Complexity:** High 
 **Impact:** Medium  
 **Status:** Planned
 
@@ -323,7 +330,7 @@ tutorials/
 ---
 
 #### 10. Elo Rating System ⭐⭐
-**Complexity:** Medium-High (2-3 hours)  
+**Complexity:** Medium-High 
 **Impact:** Medium  
 **Status:** Planned
 
@@ -353,7 +360,7 @@ tutorials/
 Priority: Nice-to-have enhancements
 
 #### 11. Board Themes & Customization ⭐
-**Complexity:** Low-Medium (1 hour)  
+**Complexity:** Low-Medium   
 **Impact:** Low-Medium  
 **Status:** Planned
 
@@ -380,7 +387,7 @@ Priority: Nice-to-have enhancements
 ---
 
 #### 12. Position Setup Mode ⭐
-**Complexity:** Medium (1.5 hours)  
+**Complexity:** Medium 
 **Impact:** Low-Medium  
 **Status:** Planned
 
@@ -407,7 +414,7 @@ Priority: Nice-to-have enhancements
 ---
 
 #### 13. Online Multiplayer 🌐
-**Complexity:** Very High (8-12 hours)  
+**Complexity:** Very High 
 **Impact:** High  
 **Status:** Future consideration
 
@@ -460,7 +467,7 @@ Priority: Nice-to-have enhancements
 ---
 
 #### 15. Analysis Engine Integration 🔧
-**Complexity:** High (4-6 hours)  
+**Complexity:** High 
 **Impact:** Medium-High  
 **Status:** Future consideration
 
@@ -486,8 +493,13 @@ Priority: Nice-to-have enhancements
 
 ### Current UI Elements:
 - Main menu
+- Time control selection menu
 - Game board (800x800)
 - Captured pieces sidebar (200px)
+- Live chess clocks in sidebar (timed games)
+- Undo/Redo buttons in sidebar + keyboard shortcuts
+- Save/Load buttons in sidebar + keyboard shortcuts
+- Load-list overlay with selectable save entries
 - Game over overlay
 
 ### Planned UI Additions:
@@ -560,13 +572,16 @@ Priority: Nice-to-have enhancements
 - ✅ Basic UI
 - ✅ Animations
 - ✅ PvP mode
+- ✅ Undo/Redo controls
+- ✅ Pawn promotion dialog
+- ✅ Time controls and chess clock
 
 ### Version 1.5 (Near-term)
 Target: 1-2 weeks
-- [ ] Undo/Redo
-- [ ] Pawn promotion dialog
+- [x] Undo/Redo
+- [x] Pawn promotion dialog
 - [ ] Sound effects
-- [ ] Save/Load games
+- [x] Save/Load games
 - [ ] Basic settings menu
 
 ### Version 2.0 (Complete Experience)
@@ -626,14 +641,160 @@ Target: 6+ months (if pursued)
 ## 📋 Next Session Priorities
 
 **Immediate Focus (Choose 1-2):**
-1. **Undo/Redo System** - Quick win, high value
-2. **Pawn Promotion Dialog** - Completes core gameplay
-3. **Sound Effects** - Major UX improvement
+1. **Sound Effects** - Fast UX upgrade with clear player feedback
+2. **Basic settings menu** - Expose toggles for sound/theme/coordinate UX
+3. **Game Review Mode** - Leverage completed save/load foundation
 
 **After That:**
-4. Save/Load System
-5. Game Review Mode
-6. Tutorial System
+4. Move Timer (per-move countdown)
+5. Tutorial System
+6. Profile/statistics groundwork
+
+---
+
+## 🧩 Save/Load V1 - Implementation Tickets
+
+Goal: Ship reliable game resume first (JSON), plus PGN export for interoperability.
+
+### Ticket SL-01: Persistence Module Skeleton
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Create `game/save_load/` package
+- Add modules: `schema.py`, `serializer.py`, `store.py`, `pgn.py`, `service.py`
+- Add `saved_games/` directory bootstrap logic
+
+**Acceptance Criteria:**
+- [x] New package and modules import without errors
+- [x] `saved_games/` auto-creates if missing
+- [x] No gameplay behavior changes yet
+
+### Ticket SL-02: JSON Schema + Validation
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Define `schema_version` and required fields for session, position, captures, history, and clock
+- Implement lightweight payload validation in `schema.py`
+
+**Acceptance Criteria:**
+- [x] Invalid/missing required fields return clear validation errors
+- [x] Schema version is stored in every save file
+- [x] Validation passes for newly generated saves
+
+### Ticket SL-03: Serialize Runtime -> JSON
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Implement serializer for:
+  - board via string notation matrix
+  - turn/status/clocks/castling/en passant
+  - captures, move history, redo stack, last move
+  - mode + AI metadata (color/difficulty/depth)
+
+**Acceptance Criteria:**
+- [x] Mid-game state serializes without exceptions
+- [x] Castling rights and en passant target are preserved
+- [x] Timed and untimed sessions serialize correctly
+
+### Ticket SL-04: Deserialize JSON -> Runtime
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Reconstruct `Board`, `GameState`, and timer state from JSON
+- Rebuild move and redo structures needed for undo/redo continuity
+- Restore last move highlight and session metadata
+
+**Acceptance Criteria:**
+- [x] Loaded game position exactly matches saved position
+- [x] Undo/redo works after load
+- [x] Timers resume with correct remaining time/player
+
+### Ticket SL-05: Store Layer + Save Index
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Implement save/write/read/list/delete in `store.py`
+- Add `saved_games/index.json` summary cache for quick menu listing
+- Support `manual` and `autosave` source tags
+
+**Acceptance Criteria:**
+- [x] Save files persist and can be listed without full file scans
+- [x] Delete removes file and updates index
+- [x] Corrupt save entries are skipped with non-fatal warning
+
+### Ticket SL-06: Service Facade Integration
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Add `service.py` facade methods: `save_game`, `load_game`, `list_saves`, `delete_save`
+- Wire into game flow with minimal surface changes
+
+**Acceptance Criteria:**
+- [x] Single-call save/load API works from main loop integration points
+- [x] Failures return actionable error messages (not hard crashes)
+- [x] Existing gameplay loop remains stable
+
+### Ticket SL-07: PGN Export (V1)
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Generate PGN text for completed/in-progress games
+- Include required tags: Event, Site, Date, White, Black, Result
+- Write sidecar `.pgn` alongside JSON save
+
+**Acceptance Criteria:**
+- [x] PGN file is generated for saved games
+- [x] Moves are exported in legal notation sequence
+- [x] Unknown result uses `*` for in-progress games
+
+### Ticket SL-08: Manual Save/Load UI Hooks
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Add basic in-menu actions: Save Game / Load Game
+- Provide load list from save index and simple success/error feedback
+
+**Acceptance Criteria:**
+- [x] Player can save current game from UI flow
+- [x] Player can load selected save and continue playing
+- [x] Errors are shown cleanly without freezing UI
+
+### Ticket SL-09: Autosave (Quit/New Game Transition)
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Add autosave trigger on quit/end-game transition/new-game transition
+- Keep one rolling autosave slot
+
+**Acceptance Criteria:**
+- [x] Autosave file updates on configured transition points
+- [x] Manual saves are never overwritten by autosave
+- [x] Autosave can be loaded like any other entry
+
+### Ticket SL-10: Regression Test Pack (Manual + Optional Unit Tests)
+**Status:** ✅ Completed (May 25, 2026)
+
+**Scope:**
+- Execute core save/load validation scenarios
+- Add optional unit tests for serializer/schema/store where feasible
+
+**Acceptance Criteria:**
+- [x] En passant availability preserved across save/load
+- [x] Castling rights preserved across save/load
+- [x] Promotion history and undo/redo survive load
+- [x] Timed game state and timeout behavior survive load
+
+Recommended order: `SL-01` -> `SL-02` -> `SL-03` -> `SL-04` -> `SL-05` -> `SL-06` -> `SL-07` -> `SL-08` -> `SL-09` -> `SL-10`
+
+---
+
+## 🕹 Save/Load Quick Usage
+
+- Save during a game: click **Save** in the sidebar, or press `Ctrl+S`
+- Load during a game: click **Load** in the sidebar, or press `Ctrl+L`
+- Select a save from the load overlay list
+- Autosave is written automatically to `saved_games/autosave.json` when you quit, choose New Game from game-over, or end the game
+- Manual saves and autosave are kept separate (manual saves are not overwritten by autosave)
 
 ---
 
@@ -673,4 +834,4 @@ For implementing advanced features:
 - Estimated times are rough guidelines and may vary
 - Focus on completing Tier 1 and Tier 2 before considering Tier 3 and beyond
 
-**Last Updated:** February 9, 2026
+**Last Updated:** May 25, 2026

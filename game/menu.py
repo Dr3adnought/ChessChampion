@@ -4,6 +4,7 @@ Allows players to select difficulty level and color before starting the game.
 """
 import pygame
 from typing import Tuple, Optional
+from constants import TIME_CONTROL_PRESETS
 
 
 class Button:
@@ -78,25 +79,29 @@ class Menu:
         self.button_font = pygame.font.Font(None, 36)
         self.label_font = pygame.font.Font(None, 42)
         
-        # Colors
-        self.bg_color = (40, 40, 40)
-        self.title_color = (255, 215, 0)  # Gold
-        self.label_color = (200, 200, 200)
+        # Colors - Black & Gold Theme
+        self.bg_color = (20, 20, 20)  # Deep black
+        self.title_color = (255, 215, 0)  # Bright gold
+        self.label_color = (212, 175, 55)  # Metallic gold
         
-        # Button colors
-        self.mode_color = (148, 0, 211)  # Dark violet
-        self.mode_hover = (178, 30, 241)
-        self.difficulty_color = (70, 130, 180)  # Steel blue
-        self.difficulty_hover = (100, 160, 210)
-        self.color_btn_color = (139, 69, 19)  # Saddle brown
-        self.color_btn_hover = (169, 99, 49)
-        self.start_color = (34, 139, 34)  # Forest green
-        self.start_hover = (50, 205, 50)  # Lime green
+        # Button colors - Gold with black text
+        self.mode_color = (212, 175, 55)  # Metallic gold
+        self.mode_hover = (255, 215, 0)  # Bright gold
+        self.difficulty_color = (184, 134, 11)  # Dark gold
+        self.difficulty_hover = (212, 175, 55)  # Metallic gold
+        self.color_btn_color = (212, 175, 55)  # Metallic gold
+        self.color_btn_hover = (255, 215, 0)  # Bright gold
+        self.start_color = (255, 215, 0)  # Bright gold
+        self.start_hover = (255, 235, 50)  # Lighter gold
         
         # Selection state
         self.selected_mode = 'pvai'  # Default: Player vs AI
         self.selected_difficulty = 'medium'  # Default
         self.selected_color = 'white'  # Default
+        self.selected_time_control = 4  # Default: Blitz 5+0 (index in TIME_CONTROL_PRESETS)
+        
+        # Menu state
+        self.current_screen = 'mode'  # 'mode', 'settings', or 'time'
         
         # Create buttons
         self._create_buttons()
@@ -114,10 +119,10 @@ class Menu:
         
         self.mode_buttons = {
             'pvai': Button(mode_start_x, mode_y, mode_button_width, button_height,
-                          'Player vs AI', self.mode_color, self.mode_hover),
+                          'Player vs AI', self.mode_color, self.mode_hover, (0, 0, 0)),
             'pvp': Button(mode_start_x + mode_button_width + spacing, mode_y,
                          mode_button_width, button_height, 'Player vs Player',
-                         self.mode_color, self.mode_hover)
+                         self.mode_color, self.mode_hover, (0, 0, 0))
         }
         
         # Mark default selection
@@ -125,20 +130,20 @@ class Menu:
         
         # Difficulty buttons (centered, side by side) - only for AI mode
         diff_start_x = (self.width - (button_width * 4 + spacing * 3)) // 2
-        diff_y = 330
+        diff_y = 200
         
         self.difficulty_buttons = {
             'easy': Button(diff_start_x, diff_y, button_width, button_height, 
-                          'Easy', self.difficulty_color, self.difficulty_hover),
+                          'Easy', self.difficulty_color, self.difficulty_hover, (0, 0, 0)),
             'medium': Button(diff_start_x + button_width + spacing, diff_y, 
                            button_width, button_height, 'Medium', 
-                           self.difficulty_color, self.difficulty_hover),
+                           self.difficulty_color, self.difficulty_hover, (0, 0, 0)),
             'hard': Button(diff_start_x + (button_width + spacing) * 2, diff_y, 
                           button_width, button_height, 'Hard', 
-                          self.difficulty_color, self.difficulty_hover),
+                          self.difficulty_color, self.difficulty_hover, (0, 0, 0)),
             'expert': Button(diff_start_x + (button_width + spacing) * 3, diff_y, 
                            button_width, button_height, 'Expert', 
-                           self.difficulty_color, self.difficulty_hover)
+                           self.difficulty_color, self.difficulty_hover, (0, 0, 0))
         }
         
         # Mark default selection
@@ -146,14 +151,14 @@ class Menu:
         
         # Color selection buttons (centered, side by side)
         color_start_x = (self.width - (button_width * 2 + spacing)) // 2
-        color_y = 480
+        color_y = 350
         
         self.color_buttons = {
             'white': Button(color_start_x, color_y, button_width, button_height,
-                          'Play as White', self.color_btn_color, self.color_btn_hover),
+                          'Play as White', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
             'black': Button(color_start_x + button_width + spacing, color_y,
                           button_width, button_height, 'Play as Black', 
-                          self.color_btn_color, self.color_btn_hover)
+                          self.color_btn_color, self.color_btn_hover, (0, 0, 0))
         }
         
         # Mark default selection
@@ -166,7 +171,38 @@ class Menu:
         start_y = 650
         
         self.start_button = Button(start_x, start_y, start_width, start_height,
-                                   'Start Game', self.start_color, self.start_hover)
+                                   'Continue', self.start_color, self.start_hover, (0, 0, 0))
+        
+        # Time control buttons (grid layout)
+        self._create_time_control_buttons()
+    
+    def _create_time_control_buttons(self):
+        """Create time control selection buttons."""
+        self.time_control_buttons = []
+        button_width = 140
+        button_height = 50
+        spacing = 15
+        buttons_per_row = 4
+        
+        # Calculate starting position to center the grid
+        total_width = buttons_per_row * button_width + (buttons_per_row - 1) * spacing
+        start_x = (self.width - total_width) // 2
+        start_y = 200
+        
+        for i, (name, _, _) in enumerate(TIME_CONTROL_PRESETS):
+            row = i // buttons_per_row
+            col = i % buttons_per_row
+            x = start_x + col * (button_width + spacing)
+            y = start_y + row * (button_height + spacing)
+            
+            button = Button(x, y, button_width, button_height, name,
+                          (184, 134, 11), (212, 175, 55), (0, 0, 0))
+            
+            # Mark default selection (Blitz 5+0)
+            if i == 4:
+                button.is_selected = True
+            
+            self.time_control_buttons.append(button)
     
     def draw(self):
         """Draw the menu."""
@@ -178,6 +214,15 @@ class Menu:
         title_rect = title_text.get_rect(center=(self.width // 2, 100))
         self.screen.blit(title_text, title_rect)
         
+        if self.current_screen == 'mode':
+            self._draw_mode_screen()
+        elif self.current_screen == 'settings':
+            self._draw_settings_screen()
+        elif self.current_screen == 'time':
+            self._draw_time_control_screen()
+    
+    def _draw_mode_screen(self):
+        """Draw game mode selection screen."""
         # Game mode label
         mode_label = self.label_font.render('Game Mode:', True, self.label_color)
         mode_label_rect = mode_label.get_rect(center=(self.width // 2, 150))
@@ -187,49 +232,74 @@ class Menu:
         for button in self.mode_buttons.values():
             button.draw(self.screen, self.button_font)
         
-        # Only show difficulty and color selection for AI mode
-        if self.selected_mode == 'pvai':
-            # Difficulty label
-            diff_label = self.label_font.render('AI Difficulty:', True, self.label_color)
-            diff_label_rect = diff_label.get_rect(center=(self.width // 2, 280))
-            self.screen.blit(diff_label, diff_label_rect)
-            
-            # Difficulty buttons
-            for button in self.difficulty_buttons.values():
-                button.draw(self.screen, self.button_font)
-            
-            # Color selection label
-            color_label = self.label_font.render('Your Color:', True, self.label_color)
-            color_label_rect = color_label.get_rect(center=(self.width // 2, 430))
-            self.screen.blit(color_label, color_label_rect)
-        
-        # Color buttons (only for AI mode)
-        if self.selected_mode == 'pvai':
-            for button in self.color_buttons.values():
-                button.draw(self.screen, self.button_font)
-            
-            # Difficulty info text
-            difficulty_info = {
-                'easy': 'Easy - Good for beginners',
-                'medium': 'Medium - Balanced challenge',
-                'hard': 'Hard - Strategic play required',
-                'expert': 'Expert - Maximum challenge'
-            }
-            info_text = self.button_font.render(difficulty_info[self.selected_difficulty], 
-                                               True, (150, 150, 150))
-            info_rect = info_text.get_rect(center=(self.width // 2, 580))
-            self.screen.blit(info_text, info_rect)
-        else:
-            # PvP mode info
-            info_text = self.button_font.render('White moves first - Pass and play!', 
-                                               True, (150, 150, 150))
-            info_rect = info_text.get_rect(center=(self.width // 2, 280))
-            self.screen.blit(info_text, info_rect)
-        
-        # Start button
+        # Update button text for this screen
+        self.start_button.text = 'Continue'
         self.start_button.draw(self.screen, self.button_font)
     
-    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int]]:
+    def _draw_settings_screen(self):
+        """Draw AI difficulty and color selection screen."""
+        # Difficulty label
+        diff_label = self.label_font.render('AI Difficulty:', True, self.label_color)
+        diff_label_rect = diff_label.get_rect(center=(self.width // 2, 150))
+        self.screen.blit(diff_label, diff_label_rect)
+        
+        # Difficulty buttons
+        for button in self.difficulty_buttons.values():
+            button.draw(self.screen, self.button_font)
+        
+        # Color selection label
+        color_label = self.label_font.render('Your Color:', True, self.label_color)
+        color_label_rect = color_label.get_rect(center=(self.width // 2, 300))
+        self.screen.blit(color_label, color_label_rect)
+        
+        # Color buttons
+        for button in self.color_buttons.values():
+            button.draw(self.screen, self.button_font)
+        
+        # Difficulty info text
+        difficulty_info = {
+            'easy': 'Easy - Good for beginners',
+            'medium': 'Medium - Balanced challenge',
+            'hard': 'Hard - Strategic play required',
+            'expert': 'Expert - Maximum challenge'
+        }
+        info_text = self.button_font.render(difficulty_info[self.selected_difficulty], 
+                                           True, (150, 150, 150))
+        info_rect = info_text.get_rect(center=(self.width // 2, 450))
+        self.screen.blit(info_text, info_rect)
+        
+        # Update button text for this screen
+        self.start_button.text = 'Continue'
+        self.start_button.draw(self.screen, self.button_font)
+    
+    def _draw_time_control_screen(self):
+        """Draw time control selection screen."""
+        # Time control label
+        time_label = self.label_font.render('Time Control:', True, self.label_color)
+        time_label_rect = time_label.get_rect(center=(self.width // 2, 150))
+        self.screen.blit(time_label, time_label_rect)
+        
+        # Time control buttons
+        for button in self.time_control_buttons:
+            button.draw(self.screen, self.button_font)
+        
+        # Show description of selected time control
+        name, minutes, increment = TIME_CONTROL_PRESETS[self.selected_time_control]
+        if minutes == 0:
+            description = "No time limit - Play at your own pace"
+        else:
+            inc_text = f"+{increment}s increment" if increment > 0 else "no increment"
+            description = f"{minutes} minute{'s' if minutes > 1 else ''} per player, {inc_text}"
+        
+        desc_text = self.button_font.render(description, True, (150, 150, 150))
+        desc_rect = desc_text.get_rect(center=(self.width // 2, 530))
+        self.screen.blit(desc_text, desc_rect)
+        
+        # Update button text for this screen
+        self.start_button.text = 'Start Game'
+        self.start_button.draw(self.screen, self.button_font)
+    
+    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int]]:
         """
         Handle mouse click on menu.
         
@@ -237,71 +307,93 @@ class Menu:
             mouse_pos: Position of mouse click
             
         Returns:
-            Tuple of (mode, difficulty, color, depth) if start button clicked, None otherwise
+            Tuple of (mode, difficulty, ai_color, depth, time_minutes, time_increment) if start clicked, None otherwise
         """
+        if self.current_screen == 'mode':
+            return self._handle_mode_click(mouse_pos)
+        elif self.current_screen == 'settings':
+            return self._handle_settings_click(mouse_pos)
+        elif self.current_screen == 'time':
+            return self._handle_time_click(mouse_pos)
+        return None
+    
+    def _handle_mode_click(self, mouse_pos: Tuple[int, int]) -> None:
+        """Handle clicks on mode selection screen."""
         # Check game mode buttons
         for mode, button in self.mode_buttons.items():
             if button.is_clicked(mouse_pos):
-                # Deselect all mode buttons
                 for btn in self.mode_buttons.values():
                     btn.is_selected = False
-                # Select clicked button
                 button.is_selected = True
                 self.selected_mode = mode
                 return None
         
-        # Check difficulty buttons (only relevant for AI mode)
-        if self.selected_mode == 'pvai':
-            for difficulty, button in self.difficulty_buttons.items():
-                if button.is_clicked(mouse_pos):
-                    # Deselect all difficulty buttons
-                    for btn in self.difficulty_buttons.values():
-                        btn.is_selected = False
-                    # Select clicked button
-                    button.is_selected = True
-                    self.selected_difficulty = difficulty
-                    return None
-            
-            # Check color buttons (only relevant for AI mode)
-            for color, button in self.color_buttons.items():
-                if button.is_clicked(mouse_pos):
-                    # Deselect all color buttons
-                    for btn in self.color_buttons.values():
-                        btn.is_selected = False
-                    # Select clicked button
-                    button.is_selected = True
-                    self.selected_color = color
-                    return None
+        # Check continue button
+        if self.start_button.is_clicked(mouse_pos):
+            if self.selected_mode == 'pvai':
+                self.current_screen = 'settings'
+            else:
+                self.current_screen = 'time'
+        return None
+    
+    def _handle_settings_click(self, mouse_pos: Tuple[int, int]) -> None:
+        """Handle clicks on settings screen (difficulty and color)."""
+        # Check difficulty buttons
+        for difficulty, button in self.difficulty_buttons.items():
+            if button.is_clicked(mouse_pos):
+                for btn in self.difficulty_buttons.values():
+                    btn.is_selected = False
+                button.is_selected = True
+                self.selected_difficulty = difficulty
+                return None
+        
+        # Check color buttons
+        for color, button in self.color_buttons.items():
+            if button.is_clicked(mouse_pos):
+                for btn in self.color_buttons.values():
+                    btn.is_selected = False
+                button.is_selected = True
+                self.selected_color = color
+                return None
+        
+        # Check continue button
+        if self.start_button.is_clicked(mouse_pos):
+            self.current_screen = 'time'
+        return None
+    
+    def _handle_time_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int]]:
+        """Handle clicks on time control screen."""
+        # Check time control buttons
+        for i, button in enumerate(self.time_control_buttons):
+            if button.is_clicked(mouse_pos):
+                for btn in self.time_control_buttons:
+                    btn.is_selected = False
+                button.is_selected = True
+                self.selected_time_control = i
+                return None
         
         # Check start button
         if self.start_button.is_clicked(mouse_pos):
+            # Get time control settings
+            _, minutes, increment = TIME_CONTROL_PRESETS[self.selected_time_control]
+            
             if self.selected_mode == 'pvp':
-                # Player vs Player - no AI
-                return ('pvp', 'none', 'white', 0)
+                return ('pvp', 'none', 'white', 0, minutes, increment)
             else:
-                # Player vs AI
                 # Map difficulty to depth
-                depth_map = {
-                    'easy': 1,
-                    'medium': 2,
-                    'hard': 3,
-                    'expert': 4
-                }
+                depth_map = {'easy': 1, 'medium': 2, 'hard': 3, 'expert': 4}
                 depth = depth_map[self.selected_difficulty]
-                
-                # Determine AI color (opposite of player)
                 ai_color = 'black' if self.selected_color == 'white' else 'white'
-                
-                return ('pvai', self.selected_difficulty, ai_color, depth)
+                return ('pvai', self.selected_difficulty, ai_color, depth, minutes, increment)
         
         return None
     
-    def run(self) -> Tuple[str, str, str, int]:
+    def run(self) -> Tuple[str, str, str, int, int, int]:
         """
         Run the menu and wait for user to start the game.
         
         Returns:
-            Tuple of (mode, difficulty, ai_color, depth)
+            Tuple of (mode, difficulty, ai_color, depth, time_minutes, time_increment)
         """
         clock = pygame.time.Clock()
         running = True
@@ -343,16 +435,16 @@ class GameOverMenu:
         self.subtitle_font = pygame.font.Font(None, 48)
         self.button_font = pygame.font.Font(None, 40)
         
-        # Colors
+        # Colors - Black & Gold Theme
         self.overlay_color = (0, 0, 0, 180)  # Semi-transparent black
-        self.title_color = (255, 215, 0)  # Gold
-        self.subtitle_color = (200, 200, 200)
+        self.title_color = (255, 215, 0)  # Bright gold
+        self.subtitle_color = (212, 175, 55)  # Metallic gold
         
         # Button colors
-        self.new_game_color = (34, 139, 34)  # Forest green
-        self.new_game_hover = (50, 205, 50)  # Lime green
-        self.end_game_color = (178, 34, 34)  # Firebrick red
-        self.end_game_hover = (220, 20, 60)  # Crimson
+        self.new_game_color = (212, 175, 55)  # Metallic gold
+        self.new_game_hover = (255, 215, 0)  # Bright gold
+        self.end_game_color = (60, 60, 60)  # Dark gray
+        self.end_game_hover = (80, 80, 80)  # Lighter gray
         
         # Create buttons
         self._create_buttons()
@@ -369,13 +461,13 @@ class GameOverMenu:
         
         self.new_game_button = Button(
             start_x, start_y, button_width, button_height,
-            'New Game', self.new_game_color, self.new_game_hover
+            'New Game', self.new_game_color, self.new_game_hover, (0, 0, 0)
         )
         
         self.end_game_button = Button(
             start_x, start_y + button_height + spacing, 
             button_width, button_height,
-            'End Game', self.end_game_color, self.end_game_hover
+            'End Game', self.end_game_color, self.end_game_hover, (200, 200, 200)
         )
     
     def draw(self, game_surface: pygame.Surface):
