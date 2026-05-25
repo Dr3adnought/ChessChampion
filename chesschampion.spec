@@ -3,7 +3,8 @@
 
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+spec_path = globals().get("__file__") or globals().get("SPEC") or "chesschampion.spec"
+PROJECT_ROOT = Path(spec_path).resolve().parent
 
 block_cipher = None
 

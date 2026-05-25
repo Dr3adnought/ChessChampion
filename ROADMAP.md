@@ -606,7 +606,7 @@ Complete these before committing to full distribution and multiplayer implementa
 
 ### Packaging Readiness
 - [x] Add first PyInstaller build configuration/spec
-- [ ] Verify packaged asset inclusion (pieces, sounds, UI assets)
+- [x] Verify packaged asset inclusion (pieces, sounds, UI assets)
 - [x] Add release smoke checklist (startup, move flow, save/load, timer, promotion, undo/redo)
 - [x] Add tag-driven CI artifact build plan for reproducible releases
 
@@ -621,6 +621,11 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Wire minimal Online Host/Join menu + main-loop handshake flow (Phase A bootstrap)
 - [x] Integrate authoritative move flow in online mode (`move_intent` send + `move_accepted` apply)
 - [x] Apply authoritative full-state snapshots on desync/resync events in online mode
+- [x] Normalize reconnect payload shape and apply reconnect snapshots client-side
+- [x] Add runtime transport selection/bootstrap routing (shim vs TCP)
+- [x] Add first real TCP adapter path (JSON-over-TCP envelope transport)
+- [x] Persist online reconnect/session metadata (including transport label) through save/load
+- [x] Add online HUD indicator for connection state and active transport backend
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`
@@ -633,9 +638,11 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] State fingerprint determinism unit tests in `tests/test_state_fingerprint_unit.py`
 - [x] Network session manager unit tests in `tests/test_network_session_manager_unit.py`
 - [x] Network transport shim unit tests in `tests/test_network_transport_shim_unit.py`
+- [x] Network bootstrap selection unit tests in `tests/test_network_bootstrap_unit.py`
+- [x] TCP transport adapter unit tests in `tests/test_network_tcp_adapter_unit.py`
 - [x] Online sync helper unit tests in `tests/test_online_sync_unit.py`
-- [ ] Add move-validation unit tests (castling/en passant/check constraints)
-- [ ] Add deterministic serialization/deserialization parity tests for random legal games
+- [x] Move-validation unit tests (castling/en passant/check constraints) in `tests/test_move_validation_unit.py`
+- [x] Deterministic serialization/deserialization parity tests for random legal games in `tests/test_serialization_parity_unit.py`
 
 ---
 
@@ -670,10 +677,10 @@ Target: 1-2 months
 
 ### Version 2.5 (Distribution + Online Foundations)
 Target: 2-3 months
-- [ ] Windows distributable build pipeline (PyInstaller)
+- [x] Windows distributable build pipeline (PyInstaller)
 - [ ] Installer packaging and release checklist
-- [ ] Network PvP Phase A spike (host/join + move relay)
-- [ ] Network game synchronization + reconnect baseline
+- [x] Network PvP Phase A spike (host/join + move relay)
+- [x] Network game synchronization + reconnect baseline
 
 ### Version 3.0 (Advanced)
 Target: 3-6 months
@@ -918,4 +925,4 @@ For implementing advanced features:
 - Estimated times are rough guidelines and may vary
 - Focus on completing Tier 1 and Tier 2 before considering Tier 3 and beyond
 
-**Last Updated:** May 25, 2026
+**Last Updated:** May 25, 2026 (roadmap refresh)
