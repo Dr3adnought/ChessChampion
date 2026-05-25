@@ -206,7 +206,8 @@ Server -> Sender
 {
   "reason": "illegal_move",
   "authoritative_halfmove": 0,
-  "authoritative_position_hash": "sha256:..."
+  "authoritative_position_hash": "sha256:...",
+  "authoritative_fen": "..."
 }
 ```
 
@@ -238,6 +239,22 @@ Server -> Both
 }
 ```
 
+### heartbeat
+Server -> Both
+
+```json
+{
+  "server_time_utc": "2026-05-25T21:10:00Z",
+  "clock": {
+    "white_ms": 418500,
+    "black_ms": 419000,
+    "active": "white"
+  },
+  "halfmove": 8,
+  "position_hash": "sha256:..."
+}
+```
+
 ## Validation Rules
 - Reject envelope if required fields are missing.
 - Reject unsupported protocol_version.
@@ -245,6 +262,16 @@ Server -> Both
 - Reject sequence regression from same player.
 - Reject move_intent when not sender turn.
 - Reject move_intent whose move is illegal in authoritative position.
+
+## Desync Guardrails
+- Every `move_intent` must include `expected_halfmove` and `expected_position_hash`.
+- Server compares expected values with authoritative state before move validation.
+- On mismatch, server returns `move_rejected` with authoritative halfmove/hash/FEN.
+- Clients must immediately trigger `state_resync_request` after desync rejection.
+- Server emits `state_resync` containing full authoritative state snapshot.
+- Clients treat `state_resync` as source of truth and overwrite local board/clock/move counters.
+- Heartbeat messages include `halfmove` and `position_hash` to detect silent drift.
+- If drift is detected without a move, client requests resync and blocks local move submission until resynced.
 
 ## Reconnect Baseline
 - Client reconnects with `reconnect_request` including `game_id`, `player_id`, and `resume_token`.
@@ -265,6 +292,14 @@ Server -> Both
 - Clock state is authoritative on server.
 - Clients display server-provided clock snapshots.
 - Clients never decide timeout outcome.
+
+## Authoritative Clock Sync (Timed Games)
+- Server stores authoritative `white_ms`, `black_ms`, and `active` player.
+- Server updates clock on each accepted move and on periodic heartbeat (recommended every 1s).
+- Client renders a smoothed countdown between heartbeats but clamps to latest server values.
+- If client-clock drift exceeds 250ms from server snapshot, client snaps to server value.
+- Timeout decisions are server-only; server emits `game_end` with `reason: timeout` when flag falls.
+- During reconnect, `reconnect_accepted.state.clock` replaces any local clock state.
 
 ## Versioning Strategy
 - Minor changes that are backward compatible: 1.0 -> 1.1

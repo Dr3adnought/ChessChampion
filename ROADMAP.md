@@ -614,8 +614,8 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Choose and lock authority model (recommended: server-authoritative)
 - [x] Define Phase A network events (host, join, move_intent, move_accepted, resync, resign, draw)
 - [x] Add reconnect token + session resume strategy
-- [ ] Add desync guardrails (move number + board hash/FEN checkpoint)
-- [ ] Define authoritative clock sync behavior for timed games
+- [x] Add desync guardrails (move number + board hash/FEN checkpoint)
+- [x] Define authoritative clock sync behavior for timed games
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`
