@@ -602,7 +602,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Add runtime path utility for source + packaged execution (assets/settings/saves)
 - [x] Move writable files (saves/settings/logs) to user data folder strategy
 - [ ] Introduce app version constant + expose in UI/build metadata
-- [ ] Define protocol versioning and message envelope contract for network play
+- [x] Define protocol versioning and message envelope contract for network play
 
 ### Packaging Readiness
 - [x] Add first PyInstaller build configuration/spec
@@ -611,8 +611,8 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Add tag-driven CI artifact build plan for reproducible releases
 
 ### Online PvP Readiness
-- [ ] Choose and lock authority model (recommended: server-authoritative)
-- [ ] Define Phase A network events (host, join, move_intent, move_accepted, resync, resign, draw)
+- [x] Choose and lock authority model (recommended: server-authoritative)
+- [x] Define Phase A network events (host, join, move_intent, move_accepted, resync, resign, draw)
 - [ ] Add reconnect token + session resume strategy
 - [ ] Add desync guardrails (move number + board hash/FEN checkpoint)
 - [ ] Define authoritative clock sync behavior for timed games
