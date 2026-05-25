@@ -249,14 +249,8 @@ class SessionManager:
         if error:
             return {"ok": False, "error": error, "events": []}
 
-        state_payload = {
-            "halfmove": len(session.game.game_state.move_history),
-            "position_fen": "not-implemented",
-            "position_hash": fingerprint_game_state(session.game),
-            "clock": self._clock_snapshot(session.game),
-            "state": self._state_snapshot(session.game),
-            "last_event_id": "",
-        }
+        state_payload = self._authoritative_state_payload(session.game)
+        state_payload["last_event_id"] = ""
         event = self._make_server_event(session, player_state.player_id, "state_resync", state_payload)
         return {"ok": True, "events": [event]}
 
@@ -296,13 +290,7 @@ class SessionManager:
                 "player_id": player_state.player_id,
                 "new_resume_token": player_state.resume_token,
                 "resume_token_expires_at_utc": self._iso(player_state.resume_token_expires_at),
-                "state": {
-                    "halfmove": len(session.game.game_state.move_history),
-                    "position_fen": "not-implemented",
-                    "position_hash": fingerprint_game_state(session.game),
-                    "clock": self._clock_snapshot(session.game),
-                    "state": self._state_snapshot(session.game),
-                },
+                "state": self._authoritative_state_payload(session.game),
             },
         )
         return {"ok": True, "events": [accepted]}
@@ -408,6 +396,15 @@ class SessionManager:
         else:
             snapshot["last_move"] = None
         return snapshot
+
+    def _authoritative_state_payload(self, game: ChessGame) -> dict[str, Any]:
+        return {
+            "halfmove": len(game.game_state.move_history),
+            "position_fen": "not-implemented",
+            "position_hash": fingerprint_game_state(game),
+            "clock": self._clock_snapshot(game),
+            "state": self._state_snapshot(game),
+        }
 
     def _generate_invite_code(self, length: int = 6) -> str:
         alphabet = string.ascii_uppercase + string.digits

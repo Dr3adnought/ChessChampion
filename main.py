@@ -10,12 +10,13 @@ from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
 from game.network import (
-    SessionManagerClientAdapter,
+    NetworkAdapter,
     SessionManagerHub,
     apply_authoritative_clock,
     apply_authoritative_move,
     apply_authoritative_state,
     build_move_intent_payload,
+    create_online_adapter,
 )
 from game.paths import ensure_user_data_layout
 from game.promotion_dialog import PromotionDialog
@@ -127,6 +128,7 @@ def build_runtime_session_meta(
         network = online_session if isinstance(online_session, dict) else {}
         session_meta['network'] = {
             'role': str(network.get('role', '')),
+            'transport_label': str(network.get('transport_label', '')),
             'invite_code': str(network.get('invite_code', '')),
             'side': str(network.get('side', '')),
             'game_id': str(network.get('game_id', '')),
@@ -160,12 +162,13 @@ def bootstrap_online_client(
     invite_code: str,
     time_minutes: int,
     time_increment: int,
-) -> tuple[SessionManagerClientAdapter | None, str, int, int, str | None, bool, dict]:
+) -> tuple[NetworkAdapter | None, str, int, int, str | None, bool, dict]:
     """Initialize in-process online adapter flow and return status text."""
-    adapter = SessionManagerClientAdapter(ONLINE_HUB)
+    adapter, transport_label = create_online_adapter(hub=ONLINE_HUB)
     adapter.connect()
     session = {
         'role': role,
+        'transport_label': transport_label,
         'invite_code': invite_code.strip().upper(),
         'side': None,
         'game_id': None,
@@ -193,7 +196,7 @@ def bootstrap_online_client(
 
         invite = host_created.payload.get('invite_code', '')
         side = host_created.payload.get('host_side', 'white')
-        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment, side, False, session
+        return adapter, f'Online host ready ({transport_label}). Invite code: {invite}', time_minutes, time_increment, side, False, session
 
     join_code = invite_code.strip().upper()
     if not join_code:
@@ -225,10 +228,10 @@ def bootstrap_online_client(
 
     side = join_accepted.payload.get('side', 'black')
     started = game_start is not None
-    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment, side, started, session
+    return adapter, f'Joined online session {join_code} via {transport_label}', resolved_minutes, resolved_increment, side, started, session
 
 
-def _update_online_session(session: dict, network_event, adapter: SessionManagerClientAdapter | None = None) -> None:
+def _update_online_session(session: dict, network_event, adapter: NetworkAdapter | None = None) -> None:
     """Capture reconnect/session identity from authoritative online events."""
     if not isinstance(session, dict):
         return
@@ -238,10 +241,13 @@ def _update_online_session(session: dict, network_event, adapter: SessionManager
         payload = {}
 
     if adapter is not None:
-        if adapter.game_id:
-            session['game_id'] = adapter.game_id
-        if adapter.player_id:
-            session['player_id'] = adapter.player_id
+        adapter_game_id = getattr(adapter, 'game_id', None)
+        if isinstance(adapter_game_id, str) and adapter_game_id:
+            session['game_id'] = adapter_game_id
+
+        adapter_player_id = getattr(adapter, 'player_id', None)
+        if isinstance(adapter_player_id, str) and adapter_player_id:
+            session['player_id'] = adapter_player_id
 
     event_id = getattr(network_event, 'event_id', '')
     if isinstance(event_id, str) and event_id:
@@ -272,7 +278,7 @@ def _update_online_session(session: dict, network_event, adapter: SessionManager
         session['resume_token_expires_at_utc'] = resume_expires
 
 
-def reconnect_online_client(session: dict) -> tuple[SessionManagerClientAdapter | None, str, dict | None]:
+def reconnect_online_client(session: dict) -> tuple[NetworkAdapter | None, str, dict | None]:
     """Create a fresh adapter and resume an online session using the stored resume token."""
     game_id = session.get('game_id')
     player_id = session.get('player_id')
@@ -284,7 +290,8 @@ def reconnect_online_client(session: dict) -> tuple[SessionManagerClientAdapter 
     if not isinstance(resume_token, str) or not resume_token:
         return None, 'Reconnect unavailable: missing resume token', None
 
-    adapter = SessionManagerClientAdapter(ONLINE_HUB)
+    adapter, transport_label = create_online_adapter(hub=ONLINE_HUB)
+    session['transport_label'] = transport_label
     adapter.connect()
     adapter.send(
         'reconnect_request',
@@ -322,6 +329,7 @@ def restore_online_session_from_meta(session_meta: dict | None) -> tuple[dict | 
 
     restored = {
         'role': str(network.get('role', '')),
+        'transport_label': str(network.get('transport_label', '')),
         'invite_code': str(network.get('invite_code', '')).upper(),
         'side': str(network.get('side', '')),
         'game_id': str(network.get('game_id', '')),
@@ -337,9 +345,9 @@ def restore_online_session_from_meta(session_meta: dict | None) -> tuple[dict | 
 def apply_reconnect_result(
     game: ChessGame,
     online_session: dict | None,
-    online_adapter: SessionManagerClientAdapter | None,
+    online_adapter: NetworkAdapter | None,
     online_side: str | None,
-) -> tuple[SessionManagerClientAdapter | None, str | None, bool, bool, str, tuple[int, int, int]]:
+) -> tuple[NetworkAdapter | None, str | None, bool, bool, str, tuple[int, int, int]]:
     """Reconnect current online session and apply the returned authoritative snapshot."""
     if online_session is None:
         return online_adapter, online_side, False, False, 'Reconnect unavailable', (255, 120, 120)
@@ -940,6 +948,7 @@ while game_active:
                     sidebar_x=BOARD_SIZE,
                     sidebar_width=SIDEBAR_WIDTH,
                     board_height=HEIGHT,
+                    transport_label=(online_session or {}).get('transport_label', ''),
                     invite_code=(online_session or {}).get('invite_code', ''),
                     side=(online_session or {}).get('side', ''),
                     connection_state=online_connection_state,

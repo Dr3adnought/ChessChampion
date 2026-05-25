@@ -146,6 +146,8 @@ class SessionManagerUnitTests(unittest.TestCase):
         accepted = reconnect["events"][0]
         self.assertEqual(accepted["event_type"], "reconnect_accepted")
         self.assertNotEqual(accepted["payload"]["new_resume_token"], old_token)
+        self.assertIn("state", accepted["payload"])
+        self.assertIn("board", accepted["payload"]["state"]["state"])
 
 
 if __name__ == "__main__":

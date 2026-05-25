@@ -525,6 +525,7 @@ class Renderer:
         sidebar_x: int,
         sidebar_width: int,
         board_height: int,
+        transport_label: str = "",
         invite_code: str = "",
         side: str = "",
         connection_state: str = "offline",
@@ -538,6 +539,9 @@ class Renderer:
         side_label = side.capitalize() if side in ("white", "black") else "Pending"
         invite_label = invite_code if invite_code else "----"
         state_label = connection_state.replace('_', ' ').capitalize() if connection_state else 'Offline'
+        transport_short = transport_label if transport_label else "shim://session-manager"
+        if len(transport_short) > 26:
+            transport_short = transport_short[:23] + "..."
 
         state_color = (170, 170, 170)
         if connection_state in ("connected", "resumed", "resynced"):
@@ -549,7 +553,7 @@ class Renderer:
 
         title = self.small_font.render(f"Online: {side_label}", True, (220, 220, 220))
         state_text = self.small_font.render(state_label, True, state_color)
-        hint = self.small_font.render(f"Code {invite_label} | Ctrl+R", True, (170, 170, 170))
+        hint = self.small_font.render(f"{transport_short} | Code {invite_label}", True, (170, 170, 170))
         self.screen.blit(title, (panel_rect.x + 10, panel_rect.y + 8))
         self.screen.blit(state_text, (panel_rect.right - state_text.get_width() - 10, panel_rect.y + 8))
         self.screen.blit(hint, (panel_rect.x + 10, panel_rect.y + 26))

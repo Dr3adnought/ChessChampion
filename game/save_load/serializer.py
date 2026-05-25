@@ -124,6 +124,7 @@ def _build_session_payload(session_meta: Optional[dict[str, Any]]) -> dict[str, 
 
     network_payload: dict[str, Any] = {
         "role": str(network_meta.get("role", "")),
+        "transport_label": str(network_meta.get("transport_label", "")),
         "invite_code": str(network_meta.get("invite_code", "")),
         "side": str(network_meta.get("side", "")),
         "game_id": str(network_meta.get("game_id", "")),

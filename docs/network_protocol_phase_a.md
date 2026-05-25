@@ -110,6 +110,15 @@ Server -> Both
   "resume_token_expires_at_utc": "2026-05-25T23:05:00Z",
   "initial_fen": "startpos",
   "time_control": { "minutes": 10, "increment": 5 },
+  "state": {
+    "board": [["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"], ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"], ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]],
+    "current_turn": "white",
+    "castling_rights": "KQkq",
+    "en_passant_target": null,
+    "half_move_clock": 0,
+    "full_move_number": 1,
+    "last_move": null
+  },
   "server_clock": {
     "white_ms": 600000,
     "black_ms": 600000,
@@ -147,6 +156,15 @@ Server -> Client
       "white_ms": 420000,
       "black_ms": 419000,
       "active": "white"
+    },
+    "state": {
+      "board": [["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"], ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"], ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]],
+      "current_turn": "white",
+      "castling_rights": "KQkq",
+      "en_passant_target": null,
+      "half_move_clock": 0,
+      "full_move_number": 1,
+      "last_move": null
     }
   }
 }
@@ -207,7 +225,16 @@ Server -> Sender
   "reason": "illegal_move",
   "authoritative_halfmove": 0,
   "authoritative_position_hash": "sha256:...",
-  "authoritative_fen": "..."
+  "authoritative_fen": "...",
+  "authoritative_state": {
+    "board": [["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"], ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"], ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]],
+    "current_turn": "white",
+    "castling_rights": "KQkq",
+    "en_passant_target": null,
+    "half_move_clock": 0,
+    "full_move_number": 1,
+    "last_move": null
+  }
 }
 ```
 
@@ -223,6 +250,15 @@ Server -> Client
     "white_ms": 420000,
     "black_ms": 419000,
     "active": "white"
+  },
+  "state": {
+    "board": [["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"], ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, null], ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"], ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]],
+    "current_turn": "white",
+    "castling_rights": "KQkq",
+    "en_passant_target": null,
+    "half_move_clock": 0,
+    "full_move_number": 1,
+    "last_move": null
   },
   "last_event_id": "01JX..."
 }

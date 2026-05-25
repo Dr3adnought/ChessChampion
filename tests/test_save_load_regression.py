@@ -115,6 +115,7 @@ class SaveLoadRegressionTests(unittest.TestCase):
                 "ai": {"enabled": False, "color": "black", "difficulty": "none", "depth": 0},
                 "network": {
                     "role": "guest",
+                    "transport_label": "tcp://127.0.0.1:9001",
                     "invite_code": "ZXCV12",
                     "side": "black",
                     "game_id": "game_session_01",
@@ -136,6 +137,7 @@ class SaveLoadRegressionTests(unittest.TestCase):
         self.assertEqual(session_meta.get("network", {}).get("invite_code"), "ZXCV12")
         self.assertEqual(session_meta.get("network", {}).get("resume_token"), "rt_resume_01")
         self.assertEqual(session_meta.get("network", {}).get("side"), "black")
+        self.assertEqual(session_meta.get("network", {}).get("transport_label"), "tcp://127.0.0.1:9001")
 
 
 if __name__ == "__main__":
