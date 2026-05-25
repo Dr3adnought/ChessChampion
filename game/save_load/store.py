@@ -7,10 +7,10 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+from game.paths import get_saved_games_dir
 from game.save_load.schema import SCHEMA_VERSION, ValidationResult, validate_payload
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SAVE_GAMES_DIR = PROJECT_ROOT / "saved_games"
+SAVE_GAMES_DIR = get_saved_games_dir()
 INDEX_FILE = SAVE_GAMES_DIR / "index.json"
 
 INDEX_REQUIRED_FIELDS = (

@@ -8,6 +8,7 @@ import pygame
 from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
+from game.paths import ensure_user_data_layout
 from game.promotion_dialog import PromotionDialog
 from game.save_load.service import load_game, list_saves, save_game
 from game.types import GameStatus, Position
@@ -16,6 +17,7 @@ from constants import *
 
 
 pygame.init()
+ensure_user_data_layout()
 
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Chess Champion")

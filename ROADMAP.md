@@ -599,15 +599,15 @@ Priority: Nice-to-have enhancements
 Complete these before committing to full distribution and multiplayer implementation.
 
 ### Foundations
-- [ ] Add runtime path utility for source + packaged execution (assets/settings/saves)
-- [ ] Move writable files (saves/settings/logs) to user data folder strategy
+- [x] Add runtime path utility for source + packaged execution (assets/settings/saves)
+- [x] Move writable files (saves/settings/logs) to user data folder strategy
 - [ ] Introduce app version constant + expose in UI/build metadata
 - [ ] Define protocol versioning and message envelope contract for network play
 
 ### Packaging Readiness
-- [ ] Add first PyInstaller build configuration/spec
+- [x] Add first PyInstaller build configuration/spec
 - [ ] Verify packaged asset inclusion (pieces, sounds, UI assets)
-- [ ] Add release smoke checklist (startup, move flow, save/load, timer, promotion, undo/redo)
+- [x] Add release smoke checklist (startup, move flow, save/load, timer, promotion, undo/redo)
 - [ ] Add tag-driven CI artifact build plan for reproducible releases
 
 ### Online PvP Readiness
@@ -622,6 +622,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Schema validation unit tests in `tests/test_schema_validation_unit.py`
 - [x] Store-layer unit tests in `tests/test_store_layer_unit.py`
 - [x] Timer unit tests in `tests/test_timer_unit.py`
+- [x] Path/runtime layout unit tests in `tests/test_paths_unit.py`
 - [ ] Add move-validation unit tests (castling/en passant/check constraints)
 - [ ] Add deterministic serialization/deserialization parity tests for random legal games
 

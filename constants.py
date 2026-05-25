@@ -1,4 +1,5 @@
 import os
+from game.paths import get_assets_dir
 
 # Board dimensions
 BOARD_SIZE = 800
@@ -27,4 +28,4 @@ TIME_CONTROL_PRESETS = [
     ("Untimed", 0, 0),
 ]
 
-ASSETS_PATH = os.path.join(os.path.dirname(__file__), 'assets')
+ASSETS_PATH = os.fspath(get_assets_dir())
