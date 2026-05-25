@@ -11,6 +11,7 @@ from game.network.online_sync import (
 from game.network.protocol_contract import PROTOCOL_VERSION, validate_envelope
 from game.network.session_manager import SessionManager
 from game.network.tcp_adapter import TcpJsonNetworkAdapter
+from game.network.tcp_session_server import TcpSessionServer
 from game.network.transport_shim import SessionManagerClientAdapter, SessionManagerHub
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
 	"SessionManagerHub",
 	"SessionManager",
 	"TcpJsonNetworkAdapter",
+	"TcpSessionServer",
 	"validate_envelope",
 ]

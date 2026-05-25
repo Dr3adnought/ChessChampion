@@ -624,6 +624,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Normalize reconnect payload shape and apply reconnect snapshots client-side
 - [x] Add runtime transport selection/bootstrap routing (shim vs TCP)
 - [x] Add first real TCP adapter path (JSON-over-TCP envelope transport)
+- [x] Add minimal TCP session server process reusing authoritative SessionManager
 - [x] Persist online reconnect/session metadata (including transport label) through save/load
 - [x] Add online HUD indicator for connection state and active transport backend
 
@@ -640,6 +641,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Network transport shim unit tests in `tests/test_network_transport_shim_unit.py`
 - [x] Network bootstrap selection unit tests in `tests/test_network_bootstrap_unit.py`
 - [x] TCP transport adapter unit tests in `tests/test_network_tcp_adapter_unit.py`
+- [x] TCP session server integration tests (host/join/move/reconnect over sockets) in `tests/test_network_tcp_session_server_integration.py`
 - [x] Online sync helper unit tests in `tests/test_online_sync_unit.py`
 - [x] Move-validation unit tests (castling/en passant/check constraints) in `tests/test_move_validation_unit.py`
 - [x] Deterministic serialization/deserialization parity tests for random legal games in `tests/test_serialization_parity_unit.py`

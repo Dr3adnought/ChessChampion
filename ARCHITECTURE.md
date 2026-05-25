@@ -21,7 +21,11 @@ game/
 ├── champion_chess.py   # Main game controller (facade)
 └── network/
     ├── adapter.py      # Transport-agnostic network adapter interface
-    └── protocol_contract.py # Envelope/event contract validation
+    ├── protocol_contract.py # Envelope/event contract validation
+    ├── session_manager.py   # Authoritative host/join/move/resync/reconnect logic
+    ├── transport_shim.py    # In-process routing between client adapters and manager
+    ├── tcp_adapter.py       # TCP JSON-lines client adapter
+    └── tcp_session_server.py# TCP server process backed by SessionManager
 
 ai/
 └── ai_player.py          # AI with minimax algorithm + alpha-beta pruning
@@ -217,7 +221,8 @@ ChessChampion/
 │   └── pgn.py
 ├── docs/
 │   ├── packaging_smoke_checklist.md
-│   └── network_protocol_phase_a.md
+│   ├── network_protocol_phase_a.md
+│   └── online_tcp_manual_smoke.md
 ├── scripts/
 │   └── build_windows.ps1
 └── assets/
