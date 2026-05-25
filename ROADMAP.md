@@ -601,7 +601,7 @@ Complete these before committing to full distribution and multiplayer implementa
 ### Foundations
 - [x] Add runtime path utility for source + packaged execution (assets/settings/saves)
 - [x] Move writable files (saves/settings/logs) to user data folder strategy
-- [ ] Introduce app version constant + expose in UI/build metadata
+- [x] Introduce app version constant + expose in UI/build metadata
 - [x] Define protocol versioning and message envelope contract for network play
 
 ### Packaging Readiness
@@ -623,6 +623,9 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Store-layer unit tests in `tests/test_store_layer_unit.py`
 - [x] Timer unit tests in `tests/test_timer_unit.py`
 - [x] Path/runtime layout unit tests in `tests/test_paths_unit.py`
+- [x] Settings/config persistence unit tests in `tests/test_settings_unit.py`
+- [x] Network protocol contract unit tests in `tests/test_network_protocol_contract_unit.py`
+- [x] State fingerprint determinism unit tests in `tests/test_state_fingerprint_unit.py`
 - [ ] Add move-validation unit tests (castling/en passant/check constraints)
 - [ ] Add deterministic serialization/deserialization parity tests for random legal games
 

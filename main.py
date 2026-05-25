@@ -5,6 +5,7 @@ Now using refactored architecture with proper separation of concerns.
 import os
 import pygame
 
+from app_metadata import APP_NAME, APP_VERSION
 from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
@@ -20,7 +21,7 @@ pygame.init()
 ensure_user_data_layout()
 
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Chess Champion")
+pygame.display.set_caption(f"{APP_NAME} {APP_VERSION}")
 
 def load_pieces():
     """Load and scale piece images."""

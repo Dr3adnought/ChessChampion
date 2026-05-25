@@ -15,16 +15,21 @@ game/
 ├── board.py            # Board state management
 ├── move_validator.py   # Move validation and check detection
 ├── game_state.py       # Game state tracking and move history
+├── state_fingerprint.py# Deterministic state hash for desync detection
+├── settings.py         # Runtime settings model + persistence
 ├── renderer.py         # All rendering/drawing logic
-└── champion_chess.py   # Main game controller (facade)
+├── champion_chess.py   # Main game controller (facade)
+└── network/
+    ├── adapter.py      # Transport-agnostic network adapter interface
+    └── protocol_contract.py # Envelope/event contract validation
 
 ai/
 └── ai_player.py          # AI with minimax algorithm + alpha-beta pruning
 
-save_load/
+game/save_load/
 ├── schema.py            # Save payload schema and validation
 ├── serializer.py        # Runtime <-> payload conversion
-├── store.py             # Indexed file persistence in saved_games/
+├── store.py             # Indexed file persistence in user data saved_games/
 ├── service.py           # High-level save/load facade
 └── pgn.py               # PGN export and sidecar writing
 ```
@@ -128,10 +133,19 @@ from game.save_load.service import save_game, load_game
 # Save current game state + PGN sidecar
 result = save_game(game, source="manual", session_meta=session_meta)
 
-# Load by file name from saved_games index
+# Load by file name from user-data saved_games index
 loaded = load_game("my-save.json")
 if loaded["success"]:
     game = loaded["game"]
+```
+
+### Want a protocol-safe online layer?
+```python
+from game.network.protocol_contract import validate_envelope
+from game.network.adapter import NullNetworkAdapter
+
+ok, error = validate_envelope(message)
+adapter = NullNetworkAdapter()
 ```
 
 ### Want to add unit tests?
@@ -174,6 +188,7 @@ With this architecture in place, you can now easily implement:
 ```
 ChessChampion/
 ├── main.py                    # Entry point
+├── app_metadata.py            # App name/version/build metadata
 ├── constants.py               # Display constants
 ├── game/
 │   ├── __init__.py
@@ -182,8 +197,14 @@ ChessChampion/
 │   ├── board.py              # Board management
 │   ├── move_validator.py     # Move validation
 │   ├── game_state.py         # Game state
+│   ├── state_fingerprint.py  # Deterministic state hash
+│   ├── settings.py           # Runtime settings persistence
 │   ├── renderer.py           # Rendering
-│   └── champion_chess.py     # Game controller
+│   ├── champion_chess.py     # Game controller
+│   └── network/
+│       ├── __init__.py
+│       ├── adapter.py        # Network abstraction boundary
+│       └── protocol_contract.py # Envelope/event contract validation
 ├── ai/
 │   ├── __init__.py
 │   └── ai_player.py          # AI player
@@ -194,8 +215,11 @@ ChessChampion/
 │   ├── store.py
 │   ├── service.py
 │   └── pgn.py
-├── saved_games/
-│   └── index.json            # Save list cache
+├── docs/
+│   ├── packaging_smoke_checklist.md
+│   └── network_protocol_phase_a.md
+├── scripts/
+│   └── build_windows.ps1
 └── assets/
     └── *.png                 # Piece images
 ```

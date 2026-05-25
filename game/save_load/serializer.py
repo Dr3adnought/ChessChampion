@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from app_metadata import get_app_metadata
 from game.board import Board
 from game.champion_chess import ChessGame
 from game.game_state import GameState
@@ -25,7 +26,7 @@ def serialize_game(
     """Serialize runtime game state to a save payload (SL-03)."""
     now = _utc_now_iso()
     session = _build_session_payload(session_meta)
-    app = app_meta or {"name": "ChessChampion", "build": "local"}
+    app = app_meta or get_app_metadata()
 
     payload = {
         "schema_version": SCHEMA_VERSION,
