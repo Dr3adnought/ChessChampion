@@ -1,7 +1,4 @@
-"""
-Menu system for Chess Champion.
-Allows players to select difficulty level and color before starting the game.
-"""
+"""Menu system for Chess Champion."""
 import pygame
 from typing import Tuple, Optional
 from constants import TIME_CONTROL_PRESETS
@@ -78,6 +75,7 @@ class Menu:
         self.title_font = pygame.font.Font(None, 80)
         self.button_font = pygame.font.Font(None, 36)
         self.label_font = pygame.font.Font(None, 42)
+        self.small_font = pygame.font.Font(None, 28)
         
         # Colors - Black & Gold Theme
         self.bg_color = (20, 20, 20)  # Deep black
@@ -99,9 +97,12 @@ class Menu:
         self.selected_difficulty = 'medium'  # Default
         self.selected_color = 'white'  # Default
         self.selected_time_control = 4  # Default: Blitz 5+0 (index in TIME_CONTROL_PRESETS)
+        self.selected_online_role = 'host'  # Default role in online mode
+        self.online_invite_code = ''
+        self.online_invite_active = False
         
         # Menu state
-        self.current_screen = 'mode'  # 'mode', 'settings', or 'time'
+        self.current_screen = 'mode'  # 'mode', 'settings', 'online', or 'time'
         
         # Create buttons
         self._create_buttons()
@@ -112,9 +113,9 @@ class Menu:
         button_height = 50
         spacing = 20
         
-        # Game mode buttons (wider to fit text, centered, side by side)
+        # Game mode buttons (wider to fit text, centered)
         mode_button_width = 220
-        mode_start_x = (self.width - (mode_button_width * 2 + spacing)) // 2
+        mode_start_x = (self.width - (mode_button_width * 3 + spacing * 2)) // 2
         mode_y = 200
         
         self.mode_buttons = {
@@ -122,6 +123,9 @@ class Menu:
                           'Player vs AI', self.mode_color, self.mode_hover, (0, 0, 0)),
             'pvp': Button(mode_start_x + mode_button_width + spacing, mode_y,
                          mode_button_width, button_height, 'Player vs Player',
+                         self.mode_color, self.mode_hover, (0, 0, 0)),
+            'online': Button(mode_start_x + (mode_button_width + spacing) * 2, mode_y,
+                         mode_button_width, button_height, 'Online PvP',
                          self.mode_color, self.mode_hover, (0, 0, 0))
         }
         
@@ -164,6 +168,19 @@ class Menu:
         # Mark default selection
         self.color_buttons['white'].is_selected = True
         
+        # Online role buttons
+        role_start_x = (self.width - (button_width * 2 + spacing)) // 2
+        role_y = 280
+        self.online_role_buttons = {
+            'host': Button(role_start_x, role_y, button_width, button_height,
+                           'Host', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
+            'join': Button(role_start_x + button_width + spacing, role_y, button_width, button_height,
+                           'Join', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
+        }
+        self.online_role_buttons['host'].is_selected = True
+
+        self.invite_input_rect = pygame.Rect((self.width - 320) // 2, 380, 320, 50)
+
         # Start button (centered, larger)
         start_width = 300
         start_height = 60
@@ -218,6 +235,8 @@ class Menu:
             self._draw_mode_screen()
         elif self.current_screen == 'settings':
             self._draw_settings_screen()
+        elif self.current_screen == 'online':
+            self._draw_online_screen()
         elif self.current_screen == 'time':
             self._draw_time_control_screen()
     
@@ -233,6 +252,35 @@ class Menu:
             button.draw(self.screen, self.button_font)
         
         # Update button text for this screen
+        self.start_button.text = 'Continue'
+        self.start_button.draw(self.screen, self.button_font)
+
+    def _draw_online_screen(self):
+        """Draw online host/join setup screen."""
+        role_label = self.label_font.render('Online Role:', True, self.label_color)
+        role_label_rect = role_label.get_rect(center=(self.width // 2, 230))
+        self.screen.blit(role_label, role_label_rect)
+
+        for button in self.online_role_buttons.values():
+            button.draw(self.screen, self.button_font)
+
+        invite_label = self.small_font.render('Invite Code (Join only):', True, (200, 200, 200))
+        self.screen.blit(invite_label, (self.invite_input_rect.x, self.invite_input_rect.y - 28))
+
+        input_color = (255, 215, 0) if self.online_invite_active else (212, 175, 55)
+        pygame.draw.rect(self.screen, input_color, self.invite_input_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.invite_input_rect, width=2, border_radius=8)
+
+        invite_display = self.online_invite_code if self.online_invite_code else 'Enter invite code'
+        text_color = (0, 0, 0) if self.online_invite_code else (60, 60, 60)
+        invite_text = self.button_font.render(invite_display, True, text_color)
+        invite_text_rect = invite_text.get_rect(midleft=(self.invite_input_rect.x + 10, self.invite_input_rect.centery))
+        self.screen.blit(invite_text, invite_text_rect)
+
+        info = self.small_font.render('Host selects time control next. Join uses host settings.', True, (150, 150, 150))
+        info_rect = info.get_rect(center=(self.width // 2, 460))
+        self.screen.blit(info, info_rect)
+
         self.start_button.text = 'Continue'
         self.start_button.draw(self.screen, self.button_font)
     
@@ -299,7 +347,7 @@ class Menu:
         self.start_button.text = 'Start Game'
         self.start_button.draw(self.screen, self.button_font)
     
-    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int]]:
+    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
         """
         Handle mouse click on menu.
         
@@ -313,6 +361,8 @@ class Menu:
             return self._handle_mode_click(mouse_pos)
         elif self.current_screen == 'settings':
             return self._handle_settings_click(mouse_pos)
+        elif self.current_screen == 'online':
+            return self._handle_online_click(mouse_pos)
         elif self.current_screen == 'time':
             return self._handle_time_click(mouse_pos)
         return None
@@ -332,8 +382,32 @@ class Menu:
         if self.start_button.is_clicked(mouse_pos):
             if self.selected_mode == 'pvai':
                 self.current_screen = 'settings'
+            elif self.selected_mode == 'online':
+                self.current_screen = 'online'
             else:
                 self.current_screen = 'time'
+        return None
+
+    def _handle_online_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
+        """Handle online role/invite screen interactions."""
+        for role, button in self.online_role_buttons.items():
+            if button.is_clicked(mouse_pos):
+                for btn in self.online_role_buttons.values():
+                    btn.is_selected = False
+                button.is_selected = True
+                self.selected_online_role = role
+                return None
+
+        self.online_invite_active = self.invite_input_rect.collidepoint(mouse_pos)
+
+        if self.start_button.is_clicked(mouse_pos):
+            if self.selected_online_role == 'join':
+                invite = self.online_invite_code.strip().upper()
+                if invite:
+                    return ('online', 'none', 'white', 0, 0, 0, 'join', invite)
+                return None
+
+            self.current_screen = 'time'
         return None
     
     def _handle_settings_click(self, mouse_pos: Tuple[int, int]) -> None:
@@ -361,7 +435,7 @@ class Menu:
             self.current_screen = 'time'
         return None
     
-    def _handle_time_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int]]:
+    def _handle_time_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
         """Handle clicks on time control screen."""
         # Check time control buttons
         for i, button in enumerate(self.time_control_buttons):
@@ -378,22 +452,24 @@ class Menu:
             _, minutes, increment = TIME_CONTROL_PRESETS[self.selected_time_control]
             
             if self.selected_mode == 'pvp':
-                return ('pvp', 'none', 'white', 0, minutes, increment)
+                return ('pvp', 'none', 'white', 0, minutes, increment, 'none', '')
+            elif self.selected_mode == 'online':
+                return ('online', 'none', 'white', 0, minutes, increment, self.selected_online_role, self.online_invite_code.strip().upper())
             else:
                 # Map difficulty to depth
                 depth_map = {'easy': 1, 'medium': 2, 'hard': 3, 'expert': 4}
                 depth = depth_map[self.selected_difficulty]
                 ai_color = 'black' if self.selected_color == 'white' else 'white'
-                return ('pvai', self.selected_difficulty, ai_color, depth, minutes, increment)
+                return ('pvai', self.selected_difficulty, ai_color, depth, minutes, increment, 'none', '')
         
         return None
     
-    def run(self) -> Tuple[str, str, str, int, int, int]:
+    def run(self) -> Tuple[str, str, str, int, int, int, str, str]:
         """
         Run the menu and wait for user to start the game.
         
         Returns:
-            Tuple of (mode, difficulty, ai_color, depth, time_minutes, time_increment)
+            Tuple of (mode, difficulty, ai_color, depth, time_minutes, time_increment, online_role, invite_code)
         """
         clock = pygame.time.Clock()
         running = True
@@ -407,6 +483,16 @@ class Menu:
                     result = self.handle_click(event.pos)
                     if result:
                         return result
+                elif event.type == pygame.KEYDOWN and self.current_screen == 'online' and self.online_invite_active:
+                    if event.key == pygame.K_BACKSPACE:
+                        self.online_invite_code = self.online_invite_code[:-1]
+                    elif event.key == pygame.K_RETURN:
+                        result = self._handle_online_click((self.start_button.rect.centerx, self.start_button.rect.centery))
+                        if result:
+                            return result
+                    else:
+                        if len(event.unicode) == 1 and event.unicode.isalnum() and len(self.online_invite_code) < 12:
+                            self.online_invite_code += event.unicode.upper()
             
             self.draw()
             pygame.display.flip()

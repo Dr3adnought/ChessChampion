@@ -618,6 +618,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Define authoritative clock sync behavior for timed games
 - [x] Implement Phase A in-process authoritative session manager (host/join/move/resync/reconnect)
 - [x] Add transport-backed session hub/client adapter shim (message routing over protocol envelopes)
+- [x] Wire minimal Online Host/Join menu + main-loop handshake flow (Phase A bootstrap)
 
 ### Testing Baseline
 - [x] Save/Load regression tests in `tests/test_save_load_regression.py`

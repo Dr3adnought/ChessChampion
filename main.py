@@ -9,6 +9,7 @@ from app_metadata import APP_NAME, APP_VERSION
 from ai.ai_player import AIPlayer
 from game.champion_chess import ChessGame
 from game.menu import Menu, GameOverMenu
+from game.network import SessionManagerClientAdapter, SessionManagerHub
 from game.paths import ensure_user_data_layout
 from game.promotion_dialog import PromotionDialog
 from game.save_load.service import load_game, list_saves, save_game
@@ -22,6 +23,9 @@ ensure_user_data_layout()
 
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption(f"{APP_NAME} {APP_VERSION}")
+
+# In-process online hub for local host/join wiring until network transport is externalized.
+ONLINE_HUB = SessionManagerHub()
 
 def load_pieces():
     """Load and scale piece images."""
@@ -56,6 +60,21 @@ def load_pieces():
 
 def build_session_meta(game_mode: str, difficulty: str, ai_player_color: str, ai_depth: int) -> dict:
     """Build session metadata used by save/load services."""
+    if game_mode == 'online':
+        return {
+            'mode': 'online',
+            'players': {
+                'white': 'Online White',
+                'black': 'Online Black',
+            },
+            'ai': {
+                'enabled': False,
+                'color': 'black',
+                'difficulty': 'none',
+                'depth': 0,
+            },
+        }
+
     if game_mode == 'pvai':
         white_name = 'AI' if ai_player_color == 'white' else 'Player'
         black_name = 'AI' if ai_player_color == 'black' else 'Player'
@@ -104,6 +123,60 @@ def perform_autosave(game: ChessGame, session_meta: dict) -> bool:
     print(result.get('error', 'Autosave failed'))
     return False
 
+
+def bootstrap_online_client(
+    role: str,
+    invite_code: str,
+    time_minutes: int,
+    time_increment: int,
+) -> tuple[SessionManagerClientAdapter | None, str, int, int]:
+    """Initialize in-process online adapter flow and return status text."""
+    adapter = SessionManagerClientAdapter(ONLINE_HUB)
+    adapter.connect()
+
+    if role == 'host':
+        adapter.send(
+            'host_create',
+            {
+                'requested_side': 'white',
+                'time_control': {'minutes': time_minutes, 'increment': time_increment},
+            },
+        )
+        events = adapter.poll()
+        host_created = next((e for e in events if e.event_type == 'host_created'), None)
+        if not host_created:
+            adapter.disconnect()
+            return None, 'Online host setup failed', time_minutes, time_increment
+
+        invite = host_created.payload.get('invite_code', '')
+        return adapter, f'Online host ready. Invite code: {invite}', time_minutes, time_increment
+
+    join_code = invite_code.strip().upper()
+    if not join_code:
+        adapter.disconnect()
+        return None, 'Join failed: invite code is required', time_minutes, time_increment
+
+    adapter.send('join_request', {'invite_code': join_code})
+    events = adapter.poll()
+    join_accepted = next((e for e in events if e.event_type == 'join_accepted'), None)
+    game_start = next((e for e in events if e.event_type == 'game_start'), None)
+
+    if not join_accepted:
+        adapter.disconnect()
+        return None, f'Join failed for code {join_code}', time_minutes, time_increment
+
+    resolved_minutes = time_minutes
+    resolved_increment = time_increment
+    if game_start:
+        tc = game_start.payload.get('time_control', {})
+        try:
+            resolved_minutes = int(tc.get('minutes', resolved_minutes))
+            resolved_increment = int(tc.get('increment', resolved_increment))
+        except (TypeError, ValueError):
+            pass
+
+    return adapter, f'Joined online session {join_code}', resolved_minutes, resolved_increment
+
 # Load piece images once
 PIECES = load_pieces()
 
@@ -113,11 +186,27 @@ game_active = True
 while game_active:
     # Show menu and get player choices
     menu = Menu(SCREEN, WIDTH, HEIGHT)
-    game_mode, difficulty, ai_color, ai_depth, time_minutes, time_increment = menu.run()
+    game_mode, difficulty, ai_color, ai_depth, time_minutes, time_increment, online_role, online_invite = menu.run()
+
+    online_adapter = None
+    if game_mode == 'online':
+        online_adapter, online_status, time_minutes, time_increment = bootstrap_online_client(
+            online_role,
+            online_invite,
+            time_minutes,
+            time_increment,
+        )
+        if online_adapter is None:
+            print(f"\n{online_status}\n")
+            continue
+        print(f"\n{online_status}\n")
 
     if game_mode == 'pvp':
         print("\nStarting Player vs Player game")
         print("White moves first - Pass and play!\n")
+    elif game_mode == 'online':
+        print("\nStarting Online PvP session")
+        print("Transport shim connected; gameplay remains local until remote board sync wiring.\n")
     else:
         print(f"\nStarting game with {difficulty.upper()} difficulty")
         print(f"You are playing as {('WHITE' if ai_color == 'black' else 'BLACK')}")
@@ -167,6 +256,10 @@ while game_active:
     status_message = ""
     status_color = (255, 255, 255)
     status_message_until = 0
+    if game_mode == 'online':
+        status_message = 'Online mode connected (Phase A shim)'
+        status_color = (120, 210, 255)
+        status_message_until = pygame.time.get_ticks() + 5000
 
     while running:
         for event in pygame.event.get():
@@ -438,6 +531,18 @@ while game_active:
             
             player_move_pending = False
 
+        # Poll online events for status updates (Phase A shim).
+        if game_mode == 'online' and online_adapter is not None:
+            for network_event in online_adapter.poll():
+                if network_event.event_type == 'game_start':
+                    status_message = 'Online game_start event received'
+                    status_color = (120, 210, 255)
+                    status_message_until = pygame.time.get_ticks() + 3000
+                elif network_event.event_type == 'move_rejected':
+                    status_message = f"Online reject: {network_event.payload.get('reason', 'unknown')}"
+                    status_color = (255, 150, 120)
+                    status_message_until = pygame.time.get_ticks() + 3000
+
         # Check for timeout
         if game.timer.is_timed and not game.game_over:
             if game.timer.is_time_out(game.game_state.current_turn):
@@ -560,6 +665,9 @@ while game_active:
         
         # Control frame rate
         clock.tick(60)
+
+    if online_adapter is not None:
+        online_adapter.disconnect()
 
 # Clean exit
 pygame.quit()
