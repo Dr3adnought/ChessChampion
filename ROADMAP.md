@@ -608,7 +608,7 @@ Complete these before committing to full distribution and multiplayer implementa
 - [x] Add first PyInstaller build configuration/spec
 - [ ] Verify packaged asset inclusion (pieces, sounds, UI assets)
 - [x] Add release smoke checklist (startup, move flow, save/load, timer, promotion, undo/redo)
-- [ ] Add tag-driven CI artifact build plan for reproducible releases
+- [x] Add tag-driven CI artifact build plan for reproducible releases
 
 ### Online PvP Readiness
 - [ ] Choose and lock authority model (recommended: server-authoritative)
