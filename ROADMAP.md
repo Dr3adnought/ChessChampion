@@ -613,7 +613,7 @@ Complete these before committing to full distribution and multiplayer implementa
 ### Online PvP Readiness
 - [x] Choose and lock authority model (recommended: server-authoritative)
 - [x] Define Phase A network events (host, join, move_intent, move_accepted, resync, resign, draw)
-- [ ] Add reconnect token + session resume strategy
+- [x] Add reconnect token + session resume strategy
 - [ ] Add desync guardrails (move number + board hash/FEN checkpoint)
 - [ ] Define authoritative clock sync behavior for timed games
 

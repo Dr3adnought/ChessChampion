@@ -50,6 +50,9 @@ Every message uses the same top-level envelope.
 - join_accepted
 - join_rejected
 - game_start
+- reconnect_request
+- reconnect_accepted
+- reconnect_rejected
 - move_intent
 - move_accepted
 - move_rejected
@@ -103,6 +106,8 @@ Server -> Both
   "game_id": "game_01JX...",
   "white_player_id": "player_01JX...",
   "black_player_id": "player_01JX...",
+  "resume_token": "rt_01JX...",
+  "resume_token_expires_at_utc": "2026-05-25T23:05:00Z",
   "initial_fen": "startpos",
   "time_control": { "minutes": 10, "increment": 5 },
   "server_clock": {
@@ -110,6 +115,50 @@ Server -> Both
     "black_ms": 600000,
     "active": "white"
   }
+}
+```
+
+### reconnect_request
+Client -> Server
+
+```json
+{
+  "game_id": "game_01JX...",
+  "player_id": "player_01JX...",
+  "resume_token": "rt_01JX...",
+  "last_seen_event_id": "01JX..."
+}
+```
+
+### reconnect_accepted
+Server -> Client
+
+```json
+{
+  "game_id": "game_01JX...",
+  "player_id": "player_01JX...",
+  "new_resume_token": "rt_01JX...",
+  "resume_token_expires_at_utc": "2026-05-25T23:35:00Z",
+  "state": {
+    "halfmove": 8,
+    "position_fen": "...",
+    "position_hash": "sha256:...",
+    "clock": {
+      "white_ms": 420000,
+      "black_ms": 419000,
+      "active": "white"
+    }
+  }
+}
+```
+
+### reconnect_rejected
+Server -> Client
+
+```json
+{
+  "reason": "invalid_or_expired_token",
+  "recoverable": false
 }
 ```
 
@@ -198,9 +247,19 @@ Server -> Both
 - Reject move_intent whose move is illegal in authoritative position.
 
 ## Reconnect Baseline
-- Client reconnects with player_id and game_id.
-- Server sends state_resync with authoritative board, halfmove, and clock.
-- Client replaces local state with server state on mismatch.
+- Client reconnects with `reconnect_request` including `game_id`, `player_id`, and `resume_token`.
+- Server validates token ownership, expiry, and game membership.
+- If valid, server rotates token and returns `reconnect_accepted` with full authoritative state.
+- If invalid or expired, server returns `reconnect_rejected`; client must return to menu.
+- Client replaces local state with authoritative state and resumes from server sequence.
+
+## Resume Token Policy
+- Token type: opaque random string (minimum 128-bit entropy).
+- Issuance: per player at game start; rotate on successful reconnect.
+- Scope: valid only for one `game_id` + `player_id` pair.
+- Expiry: short TTL (recommended 30 minutes) after disconnect.
+- Storage: client keeps in memory only for Phase A (no persistent account storage yet).
+- Revocation: server invalidates previous token immediately after rotation.
 
 ## Clock Policy
 - Clock state is authoritative on server.
