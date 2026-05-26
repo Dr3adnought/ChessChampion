@@ -48,15 +48,13 @@ dist\ChessChampionServer.exe --host 0.0.0.0 --port 8765
 In terminal B:
 
 ```powershell
-$env:CHESSCHAMPION_ONLINE_TRANSPORT = "tcp"
-$env:CHESSCHAMPION_ONLINE_HOST = "127.0.0.1"
-$env:CHESSCHAMPION_ONLINE_PORT = "8765"
 .venv\Scripts\python.exe main.py
 ```
 
 In-game:
 
 - Choose Online mode and Host.
+- Choose transport/host/port in the Online setup screen (defaults are persisted).
 - Capture the invite code shown in HUD.
 - Confirm transport indicator shows tcp://127.0.0.1:8765.
 
@@ -65,15 +63,13 @@ In-game:
 In terminal C:
 
 ```powershell
-$env:CHESSCHAMPION_ONLINE_TRANSPORT = "tcp"
-$env:CHESSCHAMPION_ONLINE_HOST = "127.0.0.1"
-$env:CHESSCHAMPION_ONLINE_PORT = "8765"
 .venv\Scripts\python.exe main.py
 ```
 
 In-game:
 
 - Choose Online mode and Join.
+- Choose the same transport/host/port as host.
 - Enter host invite code.
 - Confirm both clients transition to active game.
 
@@ -87,7 +83,7 @@ In-game:
 ## 5) Verify Reconnect
 
 - Close host client window.
-- Relaunch host client with same TCP env vars.
+- Relaunch host client and confirm saved transport/host/port values are pre-filled.
 - Use reconnect flow from HUD/menu.
 - Verify reconnect succeeds and board/clock state match guest view.
 

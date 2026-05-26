@@ -59,7 +59,16 @@ class Button:
 class Menu:
     """Main menu for Chess Champion."""
     
-    def __init__(self, screen: pygame.Surface, width: int, height: int):
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        width: int,
+        height: int,
+        *,
+        online_transport: str = 'tcp',
+        online_host: str = '127.0.0.1',
+        online_port: int = 8765,
+    ):
         """
         Initialize the menu.
         
@@ -98,8 +107,11 @@ class Menu:
         self.selected_color = 'white'  # Default
         self.selected_time_control = 4  # Default: Blitz 5+0 (index in TIME_CONTROL_PRESETS)
         self.selected_online_role = 'host'  # Default role in online mode
+        self.selected_online_transport = online_transport if online_transport in ('tcp', 'shim') else 'tcp'
+        self.online_host = online_host.strip() if str(online_host).strip() else '127.0.0.1'
+        self.online_port = str(online_port) if str(online_port).isdigit() else '8765'
         self.online_invite_code = ''
-        self.online_invite_active = False
+        self.online_active_input = None
         
         # Menu state
         self.current_screen = 'mode'  # 'mode', 'settings', 'online', or 'time'
@@ -170,7 +182,7 @@ class Menu:
         
         # Online role buttons
         role_start_x = (self.width - (button_width * 2 + spacing)) // 2
-        role_y = 280
+        role_y = 360
         self.online_role_buttons = {
             'host': Button(role_start_x, role_y, button_width, button_height,
                            'Host', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
@@ -179,7 +191,21 @@ class Menu:
         }
         self.online_role_buttons['host'].is_selected = True
 
-        self.invite_input_rect = pygame.Rect((self.width - 320) // 2, 380, 320, 50)
+        transport_start_x = (self.width - (button_width * 2 + spacing)) // 2
+        transport_y = 250
+        self.online_transport_buttons = {
+            'tcp': Button(transport_start_x, transport_y, button_width, button_height,
+                          'TCP', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
+            'shim': Button(transport_start_x + button_width + spacing, transport_y, button_width, button_height,
+                           'Local Shim', self.color_btn_color, self.color_btn_hover, (0, 0, 0)),
+        }
+        self.online_transport_buttons[self.selected_online_transport].is_selected = True
+
+        input_width = 360
+        input_x = (self.width - input_width) // 2
+        self.invite_input_rect = pygame.Rect(input_x, 460, input_width, 46)
+        self.host_input_rect = pygame.Rect(input_x, 520, input_width, 46)
+        self.port_input_rect = pygame.Rect(input_x, 580, input_width, 46)
 
         # Start button (centered, larger)
         start_width = 300
@@ -257,8 +283,15 @@ class Menu:
 
     def _draw_online_screen(self):
         """Draw online host/join setup screen."""
+        transport_label = self.label_font.render('Transport:', True, self.label_color)
+        transport_label_rect = transport_label.get_rect(center=(self.width // 2, 220))
+        self.screen.blit(transport_label, transport_label_rect)
+
+        for button in self.online_transport_buttons.values():
+            button.draw(self.screen, self.button_font)
+
         role_label = self.label_font.render('Online Role:', True, self.label_color)
-        role_label_rect = role_label.get_rect(center=(self.width // 2, 230))
+        role_label_rect = role_label.get_rect(center=(self.width // 2, 330))
         self.screen.blit(role_label, role_label_rect)
 
         for button in self.online_role_buttons.values():
@@ -267,7 +300,7 @@ class Menu:
         invite_label = self.small_font.render('Invite Code (Join only):', True, (200, 200, 200))
         self.screen.blit(invite_label, (self.invite_input_rect.x, self.invite_input_rect.y - 28))
 
-        input_color = (255, 215, 0) if self.online_invite_active else (212, 175, 55)
+        input_color = (255, 215, 0) if self.online_active_input == 'invite' else (212, 175, 55)
         pygame.draw.rect(self.screen, input_color, self.invite_input_rect, border_radius=8)
         pygame.draw.rect(self.screen, (0, 0, 0), self.invite_input_rect, width=2, border_radius=8)
 
@@ -277,8 +310,32 @@ class Menu:
         invite_text_rect = invite_text.get_rect(midleft=(self.invite_input_rect.x + 10, self.invite_input_rect.centery))
         self.screen.blit(invite_text, invite_text_rect)
 
+        host_label = self.small_font.render('Server Host/IP:', True, (200, 200, 200))
+        self.screen.blit(host_label, (self.host_input_rect.x, self.host_input_rect.y - 26))
+
+        host_color = (255, 215, 0) if self.online_active_input == 'host' else (212, 175, 55)
+        pygame.draw.rect(self.screen, host_color, self.host_input_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.host_input_rect, width=2, border_radius=8)
+
+        host_display = self.online_host if self.online_host else '127.0.0.1'
+        host_text = self.button_font.render(host_display, True, (0, 0, 0))
+        host_text_rect = host_text.get_rect(midleft=(self.host_input_rect.x + 10, self.host_input_rect.centery))
+        self.screen.blit(host_text, host_text_rect)
+
+        port_label = self.small_font.render('Server Port:', True, (200, 200, 200))
+        self.screen.blit(port_label, (self.port_input_rect.x, self.port_input_rect.y - 26))
+
+        port_color = (255, 215, 0) if self.online_active_input == 'port' else (212, 175, 55)
+        pygame.draw.rect(self.screen, port_color, self.port_input_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.port_input_rect, width=2, border_radius=8)
+
+        port_display = self.online_port if self.online_port else '8765'
+        port_text = self.button_font.render(port_display, True, (0, 0, 0))
+        port_text_rect = port_text.get_rect(midleft=(self.port_input_rect.x + 10, self.port_input_rect.centery))
+        self.screen.blit(port_text, port_text_rect)
+
         info = self.small_font.render('Host selects time control next. Join uses host settings.', True, (150, 150, 150))
-        info_rect = info.get_rect(center=(self.width // 2, 460))
+        info_rect = info.get_rect(center=(self.width // 2, 430))
         self.screen.blit(info, info_rect)
 
         self.start_button.text = 'Continue'
@@ -347,7 +404,7 @@ class Menu:
         self.start_button.text = 'Start Game'
         self.start_button.draw(self.screen, self.button_font)
     
-    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
+    def handle_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str, str, str, int]]:
         """
         Handle mouse click on menu.
         
@@ -388,8 +445,16 @@ class Menu:
                 self.current_screen = 'time'
         return None
 
-    def _handle_online_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
+    def _handle_online_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str, str, str, int]]:
         """Handle online role/invite screen interactions."""
+        for transport, button in self.online_transport_buttons.items():
+            if button.is_clicked(mouse_pos):
+                for btn in self.online_transport_buttons.values():
+                    btn.is_selected = False
+                button.is_selected = True
+                self.selected_online_transport = transport
+                return None
+
         for role, button in self.online_role_buttons.items():
             if button.is_clicked(mouse_pos):
                 for btn in self.online_role_buttons.values():
@@ -398,13 +463,28 @@ class Menu:
                 self.selected_online_role = role
                 return None
 
-        self.online_invite_active = self.invite_input_rect.collidepoint(mouse_pos)
+        if self.invite_input_rect.collidepoint(mouse_pos):
+            self.online_active_input = 'invite'
+        elif self.host_input_rect.collidepoint(mouse_pos):
+            self.online_active_input = 'host'
+        elif self.port_input_rect.collidepoint(mouse_pos):
+            self.online_active_input = 'port'
+        else:
+            self.online_active_input = None
 
         if self.start_button.is_clicked(mouse_pos):
+            host = self.online_host.strip() or '127.0.0.1'
+            try:
+                port = int(self.online_port.strip())
+            except (TypeError, ValueError):
+                port = 8765
+            if port < 1 or port > 65535:
+                port = 8765
+
             if self.selected_online_role == 'join':
                 invite = self.online_invite_code.strip().upper()
                 if invite:
-                    return ('online', 'none', 'white', 0, 0, 0, 'join', invite)
+                    return ('online', 'none', 'white', 0, 0, 0, 'join', invite, self.selected_online_transport, host, port)
                 return None
 
             self.current_screen = 'time'
@@ -435,7 +515,7 @@ class Menu:
             self.current_screen = 'time'
         return None
     
-    def _handle_time_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str]]:
+    def _handle_time_click(self, mouse_pos: Tuple[int, int]) -> Optional[Tuple[str, str, str, int, int, int, str, str, str, str, int]]:
         """Handle clicks on time control screen."""
         # Check time control buttons
         for i, button in enumerate(self.time_control_buttons):
@@ -452,19 +532,55 @@ class Menu:
             _, minutes, increment = TIME_CONTROL_PRESETS[self.selected_time_control]
             
             if self.selected_mode == 'pvp':
-                return ('pvp', 'none', 'white', 0, minutes, increment, 'none', '')
+                return (
+                    'pvp',
+                    'none',
+                    'white',
+                    0,
+                    minutes,
+                    increment,
+                    'none',
+                    '',
+                    self.selected_online_transport,
+                    self.online_host.strip() or '127.0.0.1',
+                    self._resolved_online_port(),
+                )
             elif self.selected_mode == 'online':
-                return ('online', 'none', 'white', 0, minutes, increment, self.selected_online_role, self.online_invite_code.strip().upper())
+                return (
+                    'online',
+                    'none',
+                    'white',
+                    0,
+                    minutes,
+                    increment,
+                    self.selected_online_role,
+                    self.online_invite_code.strip().upper(),
+                    self.selected_online_transport,
+                    self.online_host.strip() or '127.0.0.1',
+                    self._resolved_online_port(),
+                )
             else:
                 # Map difficulty to depth
                 depth_map = {'easy': 1, 'medium': 2, 'hard': 3, 'expert': 4}
                 depth = depth_map[self.selected_difficulty]
                 ai_color = 'black' if self.selected_color == 'white' else 'white'
-                return ('pvai', self.selected_difficulty, ai_color, depth, minutes, increment, 'none', '')
+                return (
+                    'pvai',
+                    self.selected_difficulty,
+                    ai_color,
+                    depth,
+                    minutes,
+                    increment,
+                    'none',
+                    '',
+                    self.selected_online_transport,
+                    self.online_host.strip() or '127.0.0.1',
+                    self._resolved_online_port(),
+                )
         
         return None
     
-    def run(self) -> Tuple[str, str, str, int, int, int, str, str]:
+    def run(self) -> Tuple[str, str, str, int, int, int, str, str, str, str, int]:
         """
         Run the menu and wait for user to start the game.
         
@@ -483,20 +599,46 @@ class Menu:
                     result = self.handle_click(event.pos)
                     if result:
                         return result
-                elif event.type == pygame.KEYDOWN and self.current_screen == 'online' and self.online_invite_active:
+                elif event.type == pygame.KEYDOWN and self.current_screen == 'online' and self.online_active_input:
                     if event.key == pygame.K_BACKSPACE:
-                        self.online_invite_code = self.online_invite_code[:-1]
+                        if self.online_active_input == 'invite':
+                            self.online_invite_code = self.online_invite_code[:-1]
+                        elif self.online_active_input == 'host':
+                            self.online_host = self.online_host[:-1]
+                        elif self.online_active_input == 'port':
+                            self.online_port = self.online_port[:-1]
                     elif event.key == pygame.K_RETURN:
                         result = self._handle_online_click((self.start_button.rect.centerx, self.start_button.rect.centery))
                         if result:
                             return result
                     else:
-                        if len(event.unicode) == 1 and event.unicode.isalnum() and len(self.online_invite_code) < 12:
-                            self.online_invite_code += event.unicode.upper()
+                        if len(event.unicode) != 1:
+                            continue
+
+                        if self.online_active_input == 'invite':
+                            if event.unicode.isalnum() and len(self.online_invite_code) < 12:
+                                self.online_invite_code += event.unicode.upper()
+                        elif self.online_active_input == 'host':
+                            allowed = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:')
+                            if event.unicode in allowed and len(self.online_host) < 64:
+                                self.online_host += event.unicode
+                        elif self.online_active_input == 'port':
+                            if event.unicode.isdigit() and len(self.online_port) < 5:
+                                self.online_port += event.unicode
             
             self.draw()
             pygame.display.flip()
             clock.tick(60)
+
+    def _resolved_online_port(self) -> int:
+        try:
+            port = int(self.online_port or '8765')
+        except (TypeError, ValueError):
+            return 8765
+
+        if 1 <= port <= 65535:
+            return port
+        return 8765
 
 
 class GameOverMenu:

@@ -19,6 +19,9 @@ class AppSettings:
     network_heartbeat_interval_ms: int = 1000
     reconnect_timeout_seconds: int = 30
     debug_network_logging: bool = False
+    online_transport: str = "tcp"
+    online_host: str = "127.0.0.1"
+    online_port: int = 8765
 
 
 DEFAULT_SETTINGS = AppSettings()
@@ -68,4 +71,30 @@ def _from_payload(payload: Any) -> AppSettings:
             5, _safe_int("reconnect_timeout_seconds", DEFAULT_SETTINGS.reconnect_timeout_seconds)
         ),
         debug_network_logging=bool(payload.get("debug_network_logging", DEFAULT_SETTINGS.debug_network_logging)),
+        online_transport=_normalize_transport(payload.get("online_transport", DEFAULT_SETTINGS.online_transport)),
+        online_host=_normalize_host(payload.get("online_host", DEFAULT_SETTINGS.online_host)),
+        online_port=_normalize_port(payload.get("online_port", DEFAULT_SETTINGS.online_port)),
     )
+
+
+def _normalize_transport(value: Any) -> str:
+    selected = str(value or DEFAULT_SETTINGS.online_transport).strip().lower()
+    if selected not in ("tcp", "shim"):
+        return DEFAULT_SETTINGS.online_transport
+    return selected
+
+
+def _normalize_host(value: Any) -> str:
+    host = str(value or DEFAULT_SETTINGS.online_host).strip()
+    return host or DEFAULT_SETTINGS.online_host
+
+
+def _normalize_port(value: Any) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_SETTINGS.online_port
+
+    if 1 <= port <= 65535:
+        return port
+    return DEFAULT_SETTINGS.online_port

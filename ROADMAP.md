@@ -740,8 +740,8 @@ Use this as the only active lane until complete. Defer new feature work (includi
 - [x] Produce simple server run artifact/launcher instructions for non-developer use
 
 2. **Checkpoint R2 - Connection UX Baseline**
-- [ ] Remove env-var dependency for normal users (simple host/join config in UI or persisted settings)
-- [ ] Keep advanced options optional; prioritize one clear happy path
+- [x] Remove env-var dependency for normal users (simple host/join config in UI or persisted settings)
+- [x] Keep advanced options optional; prioritize one clear happy path
 
 3. **Checkpoint R3 - Two-Machine LAN Acceptance**
 - [ ] Run host + guest on two different home machines using packaged artifacts only

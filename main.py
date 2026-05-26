@@ -21,6 +21,7 @@ from game.network import (
 from game.paths import ensure_user_data_layout
 from game.promotion_dialog import PromotionDialog
 from game.save_load.service import load_game, list_saves, save_game
+from game.settings import load_settings, save_settings
 from game.types import Color, GameStatus, PieceType, Position
 from game.animation import AnimationManager
 from constants import *
@@ -128,6 +129,9 @@ def build_runtime_session_meta(
         network = online_session if isinstance(online_session, dict) else {}
         session_meta['network'] = {
             'role': str(network.get('role', '')),
+            'transport': str(network.get('transport', '')),
+            'host': str(network.get('host', '')),
+            'port': int(network.get('port', 0) or 0),
             'transport_label': str(network.get('transport_label', '')),
             'invite_code': str(network.get('invite_code', '')),
             'side': str(network.get('side', '')),
@@ -162,12 +166,23 @@ def bootstrap_online_client(
     invite_code: str,
     time_minutes: int,
     time_increment: int,
+    transport: str,
+    host: str,
+    port: int,
 ) -> tuple[NetworkAdapter | None, str, int, int, str | None, bool, dict]:
     """Initialize in-process online adapter flow and return status text."""
-    adapter, transport_label = create_online_adapter(hub=ONLINE_HUB)
+    adapter, transport_label = create_online_adapter(
+        transport=transport,
+        host=host,
+        port=port,
+        hub=ONLINE_HUB,
+    )
     adapter.connect()
     session = {
         'role': role,
+        'transport': transport,
+        'host': host,
+        'port': int(port),
         'transport_label': transport_label,
         'invite_code': invite_code.strip().upper(),
         'side': None,
@@ -290,7 +305,12 @@ def reconnect_online_client(session: dict) -> tuple[NetworkAdapter | None, str, 
     if not isinstance(resume_token, str) or not resume_token:
         return None, 'Reconnect unavailable: missing resume token', None
 
-    adapter, transport_label = create_online_adapter(hub=ONLINE_HUB)
+    adapter, transport_label = create_online_adapter(
+        transport=str(session.get('transport', '')),
+        host=str(session.get('host', '')),
+        port=int(session.get('port', 0) or 0),
+        hub=ONLINE_HUB,
+    )
     session['transport_label'] = transport_label
     adapter.connect()
     adapter.send(
@@ -329,6 +349,9 @@ def restore_online_session_from_meta(session_meta: dict | None) -> tuple[dict | 
 
     restored = {
         'role': str(network.get('role', '')),
+        'transport': str(network.get('transport', '')),
+        'host': str(network.get('host', '')),
+        'port': _safe_port(network.get('port', 0)),
         'transport_label': str(network.get('transport_label', '')),
         'invite_code': str(network.get('invite_code', '')).upper(),
         'side': str(network.get('side', '')),
@@ -340,6 +363,17 @@ def restore_online_session_from_meta(session_meta: dict | None) -> tuple[dict | 
     }
     side = restored.get('side') if restored.get('side') in ('white', 'black') else None
     return restored, side
+
+
+def _safe_port(value, default: int = 8765) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    if 1 <= port <= 65535:
+        return port
+    return default
 
 
 def apply_reconnect_result(
@@ -370,11 +404,36 @@ PIECES = load_pieces()
 
 # Main game loop
 game_active = True
+runtime_settings = load_settings()
 
 while game_active:
     # Show menu and get player choices
-    menu = Menu(SCREEN, WIDTH, HEIGHT)
-    game_mode, difficulty, ai_color, ai_depth, time_minutes, time_increment, online_role, online_invite = menu.run()
+    menu = Menu(
+        SCREEN,
+        WIDTH,
+        HEIGHT,
+        online_transport=runtime_settings.online_transport,
+        online_host=runtime_settings.online_host,
+        online_port=runtime_settings.online_port,
+    )
+    (
+        game_mode,
+        difficulty,
+        ai_color,
+        ai_depth,
+        time_minutes,
+        time_increment,
+        online_role,
+        online_invite,
+        online_transport,
+        online_host,
+        online_port,
+    ) = menu.run()
+
+    runtime_settings.online_transport = online_transport if online_transport in ('tcp', 'shim') else 'tcp'
+    runtime_settings.online_host = online_host.strip() or '127.0.0.1'
+    runtime_settings.online_port = _safe_port(online_port)
+    save_settings(runtime_settings)
 
     online_adapter = None
     online_side = None
@@ -388,6 +447,9 @@ while game_active:
             online_invite,
             time_minutes,
             time_increment,
+            runtime_settings.online_transport,
+            runtime_settings.online_host,
+            runtime_settings.online_port,
         )
         if online_adapter is None:
             print(f"\n{online_status}\n")

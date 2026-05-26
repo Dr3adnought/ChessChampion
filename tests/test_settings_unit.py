@@ -13,6 +13,9 @@ class SettingsUnitTests(unittest.TestCase):
                 settings = load_settings()
                 self.assertFalse(settings.network_enabled)
                 self.assertEqual(settings.network_server_url, "ws://localhost:8765")
+                self.assertEqual(settings.online_transport, "tcp")
+                self.assertEqual(settings.online_host, "127.0.0.1")
+                self.assertEqual(settings.online_port, 8765)
 
     def test_save_and_load_round_trip(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -24,6 +27,9 @@ class SettingsUnitTests(unittest.TestCase):
                         network_heartbeat_interval_ms=2000,
                         reconnect_timeout_seconds=45,
                         debug_network_logging=True,
+                        online_transport="shim",
+                        online_host="lan-host.local",
+                        online_port=9100,
                     )
                 )
                 self.assertTrue(Path(saved_path).exists())
@@ -34,6 +40,9 @@ class SettingsUnitTests(unittest.TestCase):
                 self.assertEqual(loaded.network_heartbeat_interval_ms, 2000)
                 self.assertEqual(loaded.reconnect_timeout_seconds, 45)
                 self.assertTrue(loaded.debug_network_logging)
+                self.assertEqual(loaded.online_transport, "shim")
+                self.assertEqual(loaded.online_host, "lan-host.local")
+                self.assertEqual(loaded.online_port, 9100)
 
 
 if __name__ == "__main__":

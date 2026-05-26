@@ -124,6 +124,9 @@ def _build_session_payload(session_meta: Optional[dict[str, Any]]) -> dict[str, 
 
     network_payload: dict[str, Any] = {
         "role": str(network_meta.get("role", "")),
+        "transport": str(network_meta.get("transport", "")),
+        "host": str(network_meta.get("host", "")),
+        "port": _safe_int(network_meta.get("port", 0)),
         "transport_label": str(network_meta.get("transport_label", "")),
         "invite_code": str(network_meta.get("invite_code", "")),
         "side": str(network_meta.get("side", "")),
@@ -254,6 +257,13 @@ def _piece_type_name(piece_type: Optional[PieceType]) -> Optional[str]:
     if piece_type is None:
         return None
     return piece_type.value
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _pos_to_algebraic(position: Optional[Position]) -> Optional[str]:

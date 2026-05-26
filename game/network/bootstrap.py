@@ -32,6 +32,9 @@ def create_online_adapter(
         except (TypeError, ValueError):
             tcp_port = DEFAULT_TCP_PORT
 
+        if tcp_port < 1 or tcp_port > 65535:
+            tcp_port = DEFAULT_TCP_PORT
+
         return TcpJsonNetworkAdapter(tcp_host, tcp_port), f"tcp://{tcp_host}:{tcp_port}"
 
     if hub is None:
