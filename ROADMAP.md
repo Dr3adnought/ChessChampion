@@ -731,17 +731,36 @@ Target: 6+ months (if pursued)
 
 ## 📋 Next Session Priorities
 
-**Immediate Focus (Choose 1-2):**
-1. **Sound Effects** - Fast UX upgrade with clear player feedback
-2. **Basic settings menu** - Expose toggles for sound/theme/coordinate UX
-3. **Game Review Mode** - Leverage completed save/load foundation
-4. **Distribution bootstrap** - Add first PyInstaller spec and packaged-build smoke checklist
-5. **Network PvP technical spike** - Define protocol/events and validate host/join prototype
+### Single-Track Plan: Home-LAN Playable Release First
 
-**After That:**
-6. Move Timer (per-move countdown)
-7. Tutorial System
-8. Profile/statistics groundwork
+Use this as the only active lane until complete. Defer new feature work (including Tutorial) until these checkpoints are done.
+
+1. **Checkpoint R1 - Packaging Baseline**
+- [ ] Build packaged client artifact and verify launch on host machine
+- [ ] Produce simple server run artifact/launcher instructions for non-developer use
+
+2. **Checkpoint R2 - Connection UX Baseline**
+- [ ] Remove env-var dependency for normal users (simple host/join config in UI or persisted settings)
+- [ ] Keep advanced options optional; prioritize one clear happy path
+
+3. **Checkpoint R3 - Two-Machine LAN Acceptance**
+- [ ] Run host + guest on two different home machines using packaged artifacts only
+- [ ] Complete one full game with authoritative move relay over TCP
+- [ ] Verify reconnect at least once mid-game
+
+4. **Checkpoint R4 - Beta Playable Exit Gate**
+- [ ] One-page setup guide enables non-developer success
+- [ ] Fix only blockers found in R3
+- [ ] Tag milestone as **Beta Playable (Home LAN)**
+
+### After Beta Playable (Resume Feature Work)
+
+1. Tutorial System
+2. Sound Effects
+3. Basic settings menu polish
+4. Game Review Mode
+5. Move Timer (per-move countdown)
+6. Profile/statistics groundwork
 
 ---
 
