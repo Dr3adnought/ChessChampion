@@ -748,6 +748,16 @@ Use this as the only active lane until complete. Defer new feature work (includi
 - [ ] Complete one full game with authoritative move relay over TCP
 - [ ] Verify reconnect at least once mid-game
 
+#### R3 Result Summary (Fill After Test Run)
+- Date:
+- Build commit:
+- Host machine:
+- Guest machine:
+- Host LAN IP:
+- Result: PASS / FAIL
+- Notes:
+- Follow-up fixes:
+
 4. **Checkpoint R4 - Beta Playable Exit Gate**
 - [ ] One-page setup guide enables non-developer success
 - [ ] Fix only blockers found in R3
