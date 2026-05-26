@@ -22,6 +22,27 @@ Expected output:
 TcpSessionServer listening on 127.0.0.1:8765
 ```
 
+### Optional: Start Packaged Server (no Python required)
+
+Build once:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_server_windows.ps1
+```
+
+Run packaged server:
+
+```powershell
+dist\ChessChampionServer\ChessChampionServer.exe --host 0.0.0.0 --port 8765
+```
+
+For single-file build:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_server_windows.ps1 -OneFile
+dist\ChessChampionServer.exe --host 0.0.0.0 --port 8765
+```
+
 ## 2) Start Host Client
 
 In terminal B:

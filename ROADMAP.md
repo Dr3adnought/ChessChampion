@@ -736,8 +736,8 @@ Target: 6+ months (if pursued)
 Use this as the only active lane until complete. Defer new feature work (including Tutorial) until these checkpoints are done.
 
 1. **Checkpoint R1 - Packaging Baseline**
-- [ ] Build packaged client artifact and verify launch on host machine
-- [ ] Produce simple server run artifact/launcher instructions for non-developer use
+- [x] Build packaged client artifact and verify launch on host machine
+- [x] Produce simple server run artifact/launcher instructions for non-developer use
 
 2. **Checkpoint R2 - Connection UX Baseline**
 - [ ] Remove env-var dependency for normal users (simple host/join config in UI or persisted settings)
