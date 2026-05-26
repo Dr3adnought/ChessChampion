@@ -99,3 +99,13 @@ In-game:
 - Moves relay authoritatively across clients.
 - Reconnect succeeds with correct state restoration.
 - HUD shows transport and connection status.
+
+## Packaged Two-Machine Execution
+
+For Checkpoint R3 with packaged artifacts only, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\prepare_lan_test_bundle.ps1
+```
+
+Then follow the worksheet in `docs/r3_two_machine_lan_acceptance.md`.
